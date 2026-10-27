@@ -30,11 +30,9 @@ type App struct {
 
 func NewApp() *App { return &App{} }
 
+// startup: la app siempre arranca sin carpeta; el usuario la elige cada vez.
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
-	if c := leerConfig(); c.Raiz != "" && dirExiste(c.Raiz) {
-		a.raiz = c.Raiz
-	}
 }
 
 func (a *App) raizActual() string {
@@ -201,7 +199,7 @@ func (a *App) Estado() (*Estado, error) {
 func (a *App) ElegirRaiz() (string, error) {
 	dir, err := runtime.OpenDirectoryDialog(a.ctx, runtime.OpenDialogOptions{
 		Title:            "Carpeta raíz a organizar",
-		DefaultDirectory: a.raizActual(),
+		DefaultDirectory: a.raizActual(), // vacío al iniciar: el diálogo abre donde Windows decida
 	})
 	if err != nil || dir == "" {
 		return a.raizActual(), err

@@ -106,10 +106,26 @@ async function reiniciar() {
   if (estado.value?.raiz) {
     await cargarDir('')
     await seleccionar({ruta: '', esCarpeta: true})
+    avisarFichas()
   }
   cargando.value = false
 }
-onMounted(reiniciar)
+// Al abrir una carpeta se lee su Excel de fichas: se informa qué se encontró.
+function avisarFichas() {
+  const e = estado.value
+  if (!e?.raiz) return
+  if (e.baseError) avisar(e.baseError, 'error')
+  else if (!e.baseExiste) avisar(`Esta carpeta no tiene “${e.nombreExcel}”. Puede crearlo desde aquí.`)
+  else {
+    const principales = (hijos[''] || []).filter((x) => x.esCarpeta)
+    avisar(`Fichas técnicas leídas: ${principales.filter((x) => x.ficha).length} de ${principales.length} carpetas principales tienen ficha.`)
+  }
+}
+// La app arranca sin carpeta y pide elegirla de una vez.
+onMounted(async () => {
+  await reiniciar()
+  if (!estado.value?.raiz) cambiarRaiz()
+})
 
 async function recargarTodo() {
   const abiertas = Object.keys(hijos)
@@ -488,7 +504,7 @@ watch(dialogo, async (d) => {
       <!-- Sin raíz -->
       <section v-if="!cargando && !estado?.raiz" class="pantalla-vacia">
         <h1>Elija la carpeta que quiere organizar</h1>
-        <p>Puede ser una carpeta local o de red, por ejemplo <code>Z:\MANTENIMIENTO\PRIVADA\14. Dirección Mtto</code>. En esa carpeta se guardará el Excel de fichas técnicas.</p>
+        <p>Puede ser una carpeta local o de red. Si en ella está el Excel de fichas técnicas (<code>{{ estado?.nombreExcel || 'Fichas tecnicas carpetas.xlsx' }}</code>), se lee al abrirla; si no, podrá crearlo.</p>
         <button class="btn primario" @click="cambiarRaiz"><Icono nombre="carpeta"/>Elegir carpeta</button>
         <div v-if="estado?.recientes?.length" class="recientes">
           <p class="muted">Usadas recientemente</p>
