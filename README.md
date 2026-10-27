@@ -21,6 +21,8 @@ Aplicación de escritorio (Wails + Go + Vue) para organizar una carpeta (local o
   Las subcarpetas (todos los niveles) se **explican dentro** de la ficha de su carpeta principal.
 - Hoja **Carpetas**: `ID`, `Ruta carpeta`, `Actualizado` y los campos de la sección General
   (nombre, descripción, proceso/área, responsable, tipo de contenido).
+  "Tipo de contenido" admite **varios valores** (tipo `multilista`): se guardan en la misma celda
+  separados por `;` (p. ej. `Informes; Formatos`).
 - Hoja **Subcarpetas**: `Ruta subcarpeta`, `Descripción`, `Actualizado`.
 - Hoja **Campos**: cómo se muestra cada campo (grupo; tipo: texto, largo, lista, numero, marca; opciones).
 - Hoja **Historial**: cada cambio hecho desde la app.

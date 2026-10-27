@@ -13,7 +13,7 @@ var camposPorDefecto = []Campo{
 	{Nombre: "Descripción / propósito", Grupo: "General", Tipo: "largo"},
 	{Nombre: "Proceso / área", Grupo: "General", Tipo: "texto"},
 	{Nombre: "Responsable", Grupo: "General", Tipo: "texto"},
-	{Nombre: "Tipo de contenido", Grupo: "General", Tipo: "lista",
+	{Nombre: "Tipo de contenido", Grupo: "General", Tipo: "multilista", // varios valores separados por ";"
 		Opciones: []string{"Indicadores", "Informes", "Formatos", "Procedimientos", "Planos y manuales", "Contratos", "Soportes", "Bases de datos", "Otro"}},
 }
 
@@ -57,7 +57,7 @@ func crearPlantilla(ruta string) error {
 	f.SetColWidth(hojaSubcarpetas, "C", "C", 17)
 
 	// Hoja Campos: cómo se muestra cada columna en la app.
-	f.SetSheetRow(hojaCampos, "A1", &[]interface{}{"Campo", "Grupo", "Tipo (texto, largo, lista, numero, marca)", "Opciones (separadas por ;)", "Orden"})
+	f.SetSheetRow(hojaCampos, "A1", &[]interface{}{"Campo", "Grupo", "Tipo (texto, largo, lista, multilista, numero, marca)", "Opciones (separadas por ;)", "Orden"})
 	f.SetCellStyle(hojaCampos, "A1", "E1", estiloTitulo)
 	for i, c := range camposPorDefecto {
 		ops := ""

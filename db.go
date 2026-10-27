@@ -145,6 +145,13 @@ func cargarBase(ruta string) (*baseDatos, error) {
 	}
 	sort.SliceStable(b.campos, func(i, j int) bool { return b.campos[i].Orden < b.campos[j].Orden })
 
+	// "Tipo de contenido" admite varios valores aunque el Excel (creado antes) diga "lista".
+	for i := range b.campos {
+		if normal(b.campos[i].Nombre) == normal("Tipo de contenido") && b.campos[i].Tipo == "lista" {
+			b.campos[i].Tipo = "multilista"
+		}
+	}
+
 	// Las secciones retiradas (Gestión documental, Notas) no se muestran aunque sigan en el Excel.
 	retirados := map[string]bool{}
 	for _, c := range camposRetirados {

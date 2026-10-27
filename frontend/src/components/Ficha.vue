@@ -27,7 +27,12 @@ watch(() => [props.registro, props.editando, props.arbol], () => {
   subBorrador.value = Object.fromEntries(props.arbol.map((s) => [s.ruta, s.descripcion || '']))
 }, {immediate: true, deep: true})
 
-const subsVisibles = computed(() => (props.editando || mostrarVacios.value ? props.arbol : props.arbol.filter((s) => s.descripcion)))
+const subsFiltradas = computed(() => (props.editando || mostrarVacios.value ? props.arbol : props.arbol.filter((s) => s.descripcion)))
+// Con muchas subcarpetas se muestran las primeras 5 y un botón para ver todas / contraer.
+const LIMITE_SUBS = 5
+const verTodas = ref(false)
+const subsVisibles = computed(() => (verTodas.value ? subsFiltradas.value : subsFiltradas.value.slice(0, LIMITE_SUBS)))
+watch(() => props.registro?.ruta, () => { verTodas.value = false })
 const subsDescritas = computed(() => props.arbol.filter((s) => s.descripcion).length)
 
 const grupos = computed(() => {
@@ -66,6 +71,24 @@ function guardar() {
   const subs = props.arbol.map((s) => ({ruta: s.ruta, descripcion: (subBorrador.value[s.ruta] || '').trim(), actualizado: ''}))
   emit('guardar', {...props.registro, ruta: ruta.value, valores: {...borrador.value}}, subs)
 }
+// Multilista: varios valores en una celda, separados por ";" (p. ej. "Informes; Formatos").
+const partes = (v) => (v || '').split(';').map((x) => x.trim()).filter(Boolean)
+const nuevoValor = ref({})   // campo -> texto del valor que se está agregando
+function tiene(c, o) { return partes(borrador.value[c.nombre]).some((x) => x.toLowerCase() === o.toLowerCase()) }
+function alternarValor(c, o) {
+  const l = partes(borrador.value[c.nombre])
+  const i = l.findIndex((x) => x.toLowerCase() === o.toLowerCase())
+  if (i >= 0) l.splice(i, 1); else l.push(o)
+  borrador.value[c.nombre] = l.join('; ')
+}
+function agregarValor(c) {
+  const o = (nuevoValor.value[c.nombre] || '').replaceAll(';', ',').trim()
+  if (o && !tiene(c, o)) alternarValor(c, o)
+  nuevoValor.value[c.nombre] = ''
+}
+// Opciones + los valores que ya tiene y no están en la lista (escritos a mano).
+const opcionesDe = (c) => [...c.opciones, ...partes(borrador.value[c.nombre]).filter((x) => !c.opciones.some((o) => o.toLowerCase() === x.toLowerCase()))]
+
 function alternarMarca(c) {
   borrador.value[c.nombre] = marcado(borrador.value[c.nombre]) ? '' : 'X'
 }
@@ -127,12 +150,29 @@ function alternarMarca(c) {
 
         <dl v-else class="campos">
           <div v-for="c in visibles(g)" :key="c.nombre" class="campo"
-               :class="[{ancho: c.tipo === 'largo' || semaforo(c)}, semaforo(c) && 'sem-' + semaforo(c)]">
+               :class="[{ancho: c.tipo === 'largo' || c.tipo === 'multilista' || semaforo(c)}, semaforo(c) && 'sem-' + semaforo(c)]">
             <dt>
               <span v-if="semaforo(c)" class="luz"></span>
               {{ semaforo(c) ? nombreSemaforo[semaforo(c)] : etiqueta(c.nombre) }}
             </dt>
-            <dd v-if="!editando">{{ val(c) || '—' }}</dd>
+            <dd v-if="!editando && c.tipo === 'multilista'">
+              <span v-if="!partes(val(c)).length">—</span>
+              <span v-else class="valores"><span v-for="x in partes(val(c))" :key="x" class="valor">{{ x }}</span></span>
+            </dd>
+            <dd v-else-if="!editando">{{ val(c) || '—' }}</dd>
+            <dd v-else-if="c.tipo === 'multilista'" class="multi">
+              <div class="opciones-multi" role="group" :aria-label="etiqueta(c.nombre)">
+                <button v-for="o in opcionesDe(c)" :key="o" type="button" class="opcion" :class="{on: tiene(c, o)}"
+                        :aria-pressed="tiene(c, o)" @click="alternarValor(c, o)">
+                  <span class="caja">{{ tiene(c, o) ? '✓' : '' }}</span>{{ o }}
+                </button>
+              </div>
+              <div class="otro">
+                <input v-model="nuevoValor[c.nombre]" class="campo-input" placeholder="Otro tipo…" @keydown.enter.prevent="agregarValor(c)"/>
+                <button type="button" class="btn" :disabled="!(nuevoValor[c.nombre] || '').trim()" @click="agregarValor(c)">Agregar</button>
+              </div>
+              <small class="muted">{{ partes(borrador[c.nombre]).length }} seleccionado(s)</small>
+            </dd>
             <dd v-else>
               <textarea v-if="c.tipo === 'largo' || semaforo(c)" v-model="borrador[c.nombre]" class="campo-input" rows="3"></textarea>
               <select v-else-if="c.tipo === 'lista'" v-model="borrador[c.nombre]" class="campo-input">
@@ -162,6 +202,10 @@ function alternarMarca(c) {
           <p v-else class="desc-sub" :class="{muted: !s.descripcion}">{{ s.descripcion || 'Sin descripción' }}</p>
         </li>
       </ul>
+      <button v-if="subsFiltradas.length > LIMITE_SUBS" type="button" class="ver-todas" :aria-expanded="verTodas" @click="verTodas = !verTodas">
+        <Icono nombre="chevron" :class="{girado: verTodas}"/>
+        {{ verTodas ? 'Contraer' : `Mostrar todas (${subsFiltradas.length - LIMITE_SUBS} más)` }}
+      </button>
       <p v-if="arbolCortado" class="nota-sub">Hay demasiadas subcarpetas: se muestran las primeras 600.</p>
     </section>
   </article>
@@ -190,6 +234,21 @@ function alternarMarca(c) {
 .nom-sub { display: flex; align-items: center; gap: 6px; font-size: var(--t-s); font-weight: 500; overflow-wrap: anywhere; padding-top: 2px; }
 .ic-sub { width: 15px; height: 15px; flex: none; color: var(--ambar-oscuro); }
 .desc-sub { margin: 0; font-size: var(--t-s); white-space: pre-wrap; }
+.ver-todas { display: inline-flex; align-items: center; gap: 6px; margin-top: 8px; padding: 5px 10px; border: 1px solid var(--linea); border-radius: var(--r-s); background: #fff; font-size: var(--t-s); color: var(--tinta-2); }
+.ver-todas:hover { border-color: var(--tinta-3); color: var(--tinta); }
+.ver-todas svg { width: 13px; height: 13px; transform: rotate(90deg); transition: transform .15s; }
+.ver-todas svg.girado { transform: rotate(-90deg); }
+.valores { display: flex; flex-wrap: wrap; gap: 6px; }
+.valor { padding: 2px 10px; border-radius: 999px; background: var(--ambar-claro); border: 1px solid #f0d9a0; font-size: var(--t-s); }
+.multi { display: grid; gap: 8px; }
+.opciones-multi { display: flex; flex-wrap: wrap; gap: 6px; }
+.opcion { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px 4px 6px; border: 1px solid var(--linea); border-radius: 999px; background: #fff; font-size: var(--t-s); color: var(--tinta-2); }
+.opcion:hover { border-color: var(--tinta-3); }
+.opcion .caja { display: grid; place-items: center; width: 16px; height: 16px; border: 1.5px solid var(--linea); border-radius: 4px; font-size: 11px; font-weight: 700; color: #fff; }
+.opcion.on { border-color: var(--ambar-oscuro); background: var(--ambar-claro); color: var(--tinta); font-weight: 500; }
+.opcion.on .caja { background: var(--ambar-oscuro); border-color: var(--ambar-oscuro); }
+.otro { display: flex; gap: 6px; max-width: 420px; }
+.otro .campo-input { flex: 1; }
 .lista-sub textarea { min-height: 34px; resize: vertical; font-size: var(--t-s); }
 h3 { margin: 0 0 10px; font-size: var(--t-s); font-weight: 600; color: var(--riel); }
 .campos {
