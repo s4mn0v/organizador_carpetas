@@ -30,6 +30,22 @@ type DetalleCarpeta struct {
 	Archivos    int         `json:"archivos"`
 	TamanoTotal int64       `json:"tamanoTotal"` // solo archivos directos
 	Registros   []*Registro `json:"registros"`
+
+	// Fichas: solo las carpetas principales (directo en la raíz) tienen ficha.
+	EsPrincipal    bool              `json:"esPrincipal"`
+	Arbol          []SubcarpetaFicha `json:"arbol"`        // principal: todas sus subcarpetas, para describirlas
+	ArbolCortado   bool              `json:"arbolCortado"` // demasiadas subcarpetas: se muestran las primeras
+	Principal      string            `json:"principal"`    // subcarpeta: su carpeta principal
+	PrincipalFicha bool              `json:"principalFicha"`
+	Descripcion    string            `json:"descripcion"` // subcarpeta: su explicación en la ficha
+}
+
+// SubcarpetaFicha es una subcarpeta dentro de la ficha de su carpeta principal.
+type SubcarpetaFicha struct {
+	Ruta        string `json:"ruta"`
+	Nombre      string `json:"nombre"`
+	Nivel       int    `json:"nivel"` // 1 = hija directa de la principal
+	Descripcion string `json:"descripcion"`
 }
 
 // DetalleArchivo: lo que se muestra al elegir un archivo.
@@ -139,14 +155,62 @@ func (a *App) Carpeta(rel string) (*DetalleCarpeta, error) {
 			d.TamanoTotal += e.Tamano
 		}
 	}
-	if b, _ := a.base(); b != nil {
-		for _, r := range b.registros {
-			if strings.EqualFold(r.Ruta, rel) {
-				d.Registros = append(d.Registros, r)
+	d.Arbol = []SubcarpetaFicha{}
+	b, _ := a.base()
+	switch {
+	case esPrincipal(rel):
+		d.EsPrincipal = true
+		if b != nil {
+			for _, r := range b.registros {
+				if strings.EqualFold(r.Ruta, rel) {
+					d.Registros = append(d.Registros, r)
+				}
 			}
+		}
+		d.Arbol, d.ArbolCortado = arbolSubcarpetas(raiz, rel, b)
+	case rel != "":
+		d.Principal = principalDe(rel)
+		d.PrincipalFicha = conFicha[strings.ToLower(d.Principal)]
+		if b != nil {
+			d.Descripcion = b.descripcionDe(rel)
 		}
 	}
 	return d, nil
+}
+
+// arbolSubcarpetas lista todas las subcarpetas de una carpeta principal (en orden de árbol),
+// con su descripción. Máximo 600 o 20 segundos.
+func arbolSubcarpetas(raiz, rel string, b *baseDatos) ([]SubcarpetaFicha, bool) {
+	out := []SubcarpetaFicha{}
+	limite := time.Now().Add(20 * time.Second)
+	cortado := false
+	var recorrer func(dir string, nivel int)
+	recorrer = func(dir string, nivel int) {
+		if cortado || nivel > 10 {
+			return
+		}
+		ents, err := leerDir(raiz, dir, nil)
+		if err != nil {
+			return
+		}
+		for _, e := range ents {
+			if !e.EsCarpeta {
+				continue
+			}
+			if len(out) >= 600 || time.Now().After(limite) {
+				cortado = true
+				return
+			}
+			s := SubcarpetaFicha{Ruta: e.Ruta, Nombre: e.Nombre, Nivel: nivel}
+			if b != nil {
+				s.Descripcion = b.descripcionDe(e.Ruta)
+			}
+			out = append(out, s)
+			recorrer(e.Ruta, nivel+1)
+		}
+	}
+	recorrer(rel, 1)
+	return out, cortado
 }
 
 // Archivo devuelve los datos de un archivo.

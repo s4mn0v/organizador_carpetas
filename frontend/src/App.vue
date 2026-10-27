@@ -220,6 +220,7 @@ const entradasTabla = computed(() => {
 })
 function ordenarPor(col) { orden.value = orden.value.col === col ? {col, asc: !orden.value.asc} : {col, asc: col === 'nombre' || col === 'tipo'} }
 const flecha = (col) => (orden.value.col === col ? (orden.value.asc ? '▲' : '▼') : '')
+const principales = computed(() => (sel.value.ruta === '' && detalle.value ? detalle.value.entradas.filter((e) => e.esCarpeta) : []))
 const tiposEnCarpeta = computed(() => {
   const m = new Map()
   for (const e of detalle.value?.entradas || []) if (!e.esCarpeta) { const t = tipoArchivo(e.ext); m.set(t.tipo, {n: (m.get(t.tipo)?.n || 0) + 1, color: t.color}) }
@@ -290,9 +291,10 @@ async function pedirEliminar(e) {
     detalles: [
       ...(e.esCarpeta ? [`Contiene ${r.carpetas} subcarpeta(s) y ${r.archivos} archivo(s)${r.cortado ? ' o más (es muy grande)' : ''}.`] : []),
       ...(r.fichas ? [`Se borran ${r.fichas} ficha(s) técnica(s) del Excel (quedan copiadas en la hoja Historial).`] : []),
+      ...(r.descripciones ? [`Se borran ${r.descripciones} explicación(es) de subcarpetas de la ficha (quedan en el Historial).`] : []),
       'Se puede recuperar desde la papelera de la aplicación (botón en la parte inferior de la barra lateral).',
     ],
-    escribir: e.esCarpeta && (contenido > 0 || r.fichas > 0) ? nombreDe(e.ruta) : '',
+    escribir: e.esCarpeta && (contenido > 0 || r.fichas > 0 || r.descripciones > 0) ? nombreDe(e.ruta) : '',
     ok: async () => {
       const dst = await ejecutar(() => Eliminar(e.ruta), 'Eliminado (está en la papelera de la aplicación)')
       if (dst) {
@@ -316,9 +318,9 @@ async function agregarArchivos(destino) {
 }
 
 /* ---------- Fichas ---------- */
-async function guardarFicha(r) {
+async function guardarFicha(r, subs = []) {
   const nuevo = !r.id
-  const res = await ejecutar(() => GuardarRegistro(r), nuevo ? 'Ficha creada en el Excel' : 'Cambios guardados en el Excel')
+  const res = await ejecutar(() => GuardarRegistro(r, subs), nuevo ? 'Ficha creada en el Excel' : 'Cambios guardados en el Excel')
   if (!res || res === true) return
   editando.value = false
   await recargarEstado()
@@ -571,6 +573,17 @@ watch(dialogo, async (d) => {
             <button class="btn primario" @click="crearBase">Crear Excel de fichas</button>
           </div>
           <div v-else-if="estado.baseError" class="aviso error"><Icono nombre="alerta"/><div>{{ estado.baseError }}</div></div>
+          <div v-if="estado.noPrincipal?.length" class="aviso">
+            <Icono nombre="alerta"/>
+            <div>
+              <strong>{{ estado.noPrincipal.length }} ficha(s) no están en una carpeta principal.</strong>
+              <p>Las fichas técnicas solo van en las carpetas que están en la raíz; las subcarpetas se explican dentro de esas fichas. Puede eliminarlas (quedan copiadas en el Historial del Excel).</p>
+              <ul class="sueltas">
+                <li v-for="r in estado.noPrincipal" :key="r.id"><code>{{ rutaWin(r.ruta) || '(raíz)' }}</code>
+                  <button class="enlace" @click="pedirEliminarFicha(r)">Eliminar ficha</button></li>
+              </ul>
+            </div>
+          </div>
           <div v-if="estado.sinCarpeta?.length" class="aviso">
             <Icono nombre="alerta"/>
             <div>
@@ -589,11 +602,12 @@ watch(dialogo, async (d) => {
           <div><dt>Archivos</dt><dd>{{ detalle.archivos }}</dd></div>
           <div><dt>Tamaño de los archivos</dt><dd>{{ tamanoLargo(detalle.tamanoTotal) }}</dd></div>
           <div><dt>Modificada</dt><dd class="pequeno">{{ fecha(detalle.carpeta.modificado) }}<small>{{ hace(detalle.carpeta.modificado) }}</small></dd></div>
-          <div><dt>Ficha técnica</dt><dd class="pequeno" :class="detalle.carpeta.ficha ? 'si' : 'no'">{{ detalle.carpeta.ficha ? 'Sí' : 'No tiene' }}</dd></div>
+          <div v-if="detalle.esPrincipal"><dt>Ficha técnica</dt><dd class="pequeno" :class="detalle.carpeta.ficha ? 'si' : 'no'">{{ detalle.carpeta.ficha ? 'Sí' : 'No tiene' }}</dd></div>
+          <div v-else-if="sel.ruta"><dt>Explicada en la ficha</dt><dd class="pequeno" :class="detalle.descripcion ? 'si' : 'no'">{{ detalle.descripcion ? 'Sí' : 'No' }}</dd></div>
         </dl>
 
-        <!-- Ficha técnica -->
-        <section class="bloque">
+        <!-- Ficha técnica: solo en carpetas principales -->
+        <section v-if="detalle.esPrincipal" class="bloque">
           <div class="bloque-cab">
             <h2>Ficha técnica</h2>
             <div v-if="registros.length > 1" class="pestanas" role="tablist">
@@ -602,12 +616,43 @@ watch(dialogo, async (d) => {
             </div>
           </div>
           <Ficha v-if="ficha" :registro="ficha" :campos="estado.campos" :editando="editando" :ocupado="ocupado"
+                 :arbol="detalle.arbol" :arbol-cortado="detalle.arbolCortado"
                  @editar="editando = true" @cancelar="cancelarEdicion" @guardar="guardarFicha" @eliminar="pedirEliminarFicha()"/>
           <div v-else class="sin-ficha">
-            <p v-if="estado.baseExiste">Esta carpeta no tiene ficha técnica todavía.</p>
+            <p v-if="estado.baseExiste">Esta carpeta principal no tiene ficha técnica todavía. En la ficha también se explican sus {{ detalle.arbol.length }} subcarpeta(s).</p>
             <p v-else>Para registrar fichas técnicas, primero cree el Excel de fichas en la raíz.</p>
             <button v-if="estado.baseExiste && !estado.baseError" class="btn primario" @click="nuevaFicha"><Icono nombre="mas"/>Crear ficha técnica</button>
             <button v-else-if="!estado.baseExiste" class="btn" @click="seleccionar({ruta: '', esCarpeta: true})">Ir a la raíz</button>
+          </div>
+        </section>
+
+        <!-- Subcarpeta: se explica dentro de la ficha de su carpeta principal -->
+        <section v-else-if="sel.ruta" class="bloque">
+          <div class="bloque-cab"><h2>Ficha técnica</h2></div>
+          <div class="ficha-padre">
+            <Icono nombre="carpeta-abierta"/>
+            <div>
+              <p class="quien">Esta subcarpeta se describe en la ficha de <b>{{ detalle.principal }}</b>.</p>
+              <p v-if="detalle.descripcion" class="desc">{{ detalle.descripcion }}</p>
+              <p v-else class="muted">{{ detalle.principalFicha ? 'Todavía no tiene explicación en esa ficha.' : 'Esa carpeta principal todavía no tiene ficha técnica.' }}</p>
+            </div>
+            <button class="btn" @click="seleccionar({ruta: detalle.principal, esCarpeta: true})">
+              {{ detalle.principalFicha ? (detalle.descripcion ? 'Ver la ficha' : 'Ir a la ficha y describirla') : 'Ir a la carpeta principal' }}
+            </button>
+          </div>
+        </section>
+
+        <!-- Raíz: estado de las fichas de las carpetas principales -->
+        <section v-else-if="estado.baseExiste && detalle.subcarpetas" class="bloque">
+          <div class="bloque-cab">
+            <h2>Fichas técnicas <span class="muted">{{ principales.filter((e) => e.ficha).length }} de {{ principales.length }} carpetas principales</span></h2>
+          </div>
+          <div class="principales">
+            <button v-for="e in principales" :key="e.ruta" class="carp-principal" :class="{con: e.ficha}" @click="elegirArbol(e)">
+              <Icono nombre="carpeta" class="ic carp"/>
+              <span class="nom">{{ e.nombre }}</span>
+              <span class="estado-ficha">{{ e.ficha ? 'Con ficha' : 'Sin ficha' }}</span>
+            </button>
           </div>
         </section>
 
@@ -820,6 +865,18 @@ code { font-size: .92em; padding: 0 4px; border-radius: 3px; background: var(--l
 .nombre-ent:hover span:not(.punto) { text-decoration: underline; }
 .nombre-ent span { overflow-wrap: anywhere; }
 .punto { width: 7px; height: 7px; border-radius: 50%; background: var(--ambar); flex: none; }
+.ficha-padre { display: flex; align-items: center; gap: 14px; padding: 16px 18px; background: var(--superficie); border: 1px solid var(--linea); border-left: 4px solid var(--ambar); border-radius: var(--r-m); }
+.ficha-padre > svg { width: 26px; height: 26px; color: var(--ambar-oscuro); flex: none; }
+.ficha-padre > div { flex: 1; min-width: 0; }
+.ficha-padre p { margin: 0; }
+.ficha-padre .quien { font-size: var(--t-s); color: var(--tinta-2); }
+.ficha-padre .desc { margin-top: 4px; white-space: pre-wrap; }
+.principales { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 8px; }
+.carp-principal { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border: 1px solid var(--linea); border-radius: var(--r-m); background: var(--superficie); text-align: left; font-size: var(--t-s); }
+.carp-principal:hover { border-color: var(--tinta-3); }
+.carp-principal .nom { flex: 1; min-width: 0; overflow-wrap: anywhere; font-weight: 500; }
+.estado-ficha { font-size: var(--t-xs); padding: 1px 8px; border-radius: 999px; background: var(--linea-2); color: var(--tinta-3); white-space: nowrap; }
+.carp-principal.con .estado-ficha { background: var(--verde-claro); color: var(--verde); font-weight: 600; }
 .tarjeta-arch { display: grid; gap: 18px; padding: 20px 22px; background: var(--superficie); border: 1px solid var(--linea); border-radius: var(--r-m); border-left: 6px solid var(--ambar); }
 .tarjeta-arch dl { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px 24px; margin: 0; }
 .tarjeta-arch dt { font-size: var(--t-xs); color: var(--tinta-3); }

@@ -15,13 +15,6 @@ var camposPorDefecto = []Campo{
 	{Nombre: "Responsable", Grupo: "General", Tipo: "texto"},
 	{Nombre: "Tipo de contenido", Grupo: "General", Tipo: "lista",
 		Opciones: []string{"Indicadores", "Informes", "Formatos", "Procedimientos", "Planos y manuales", "Contratos", "Soportes", "Bases de datos", "Otro"}},
-	{Nombre: "Clasificación", Grupo: "Gestión documental", Tipo: "lista", Opciones: []string{"Pública", "Interna", "Confidencial"}},
-	{Nombre: "Frecuencia de actualización", Grupo: "Gestión documental", Tipo: "lista",
-		Opciones: []string{"Diaria", "Semanal", "Mensual", "Trimestral", "Anual", "Eventual"}},
-	{Nombre: "Tiempo de retención", Grupo: "Gestión documental", Tipo: "texto"},
-	{Nombre: "Estado", Grupo: "Gestión documental", Tipo: "lista", Opciones: []string{"Activa", "En revisión", "Histórica", "Para eliminar"}},
-	{Nombre: "Palabras clave", Grupo: "Notas", Tipo: "texto"},
-	{Nombre: "Observaciones", Grupo: "Notas", Tipo: "largo"},
 }
 
 // crearPlantilla crea el Excel de fichas vacío con sus tres hojas.
@@ -31,6 +24,7 @@ func crearPlantilla(ruta string) error {
 	if err := f.SetSheetName("Sheet1", hojaFichas); err != nil {
 		return err
 	}
+	f.NewSheet(hojaSubcarpetas)
 	f.NewSheet(hojaCampos)
 	f.NewSheet(hojaHistorial)
 
@@ -54,6 +48,13 @@ func crearPlantilla(ruta string) error {
 	ultima, _ := excelize.ColumnNumberToName(len(cab))
 	f.SetColWidth(hojaFichas, "D", ultima, 26)
 	f.SetPanes(hojaFichas, &excelize.Panes{Freeze: true, XSplit: 2, YSplit: 1, TopLeftCell: "C2", ActivePane: "bottomRight"})
+
+	// Hoja Subcarpetas: explicación de cada subcarpeta (se llena desde la ficha de su carpeta principal).
+	f.SetSheetRow(hojaSubcarpetas, "A1", &[]interface{}{"Ruta subcarpeta", "Descripción", "Actualizado"})
+	f.SetCellStyle(hojaSubcarpetas, "A1", "C1", estiloTitulo)
+	f.SetColWidth(hojaSubcarpetas, "A", "A", 55)
+	f.SetColWidth(hojaSubcarpetas, "B", "B", 90)
+	f.SetColWidth(hojaSubcarpetas, "C", "C", 17)
 
 	// Hoja Campos: cómo se muestra cada columna en la app.
 	f.SetSheetRow(hojaCampos, "A1", &[]interface{}{"Campo", "Grupo", "Tipo (texto, largo, lista, numero, marca)", "Opciones (separadas por ;)", "Orden"})

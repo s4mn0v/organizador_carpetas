@@ -32,7 +32,7 @@ export function Estado():Promise<main.Estado>;
 
 export function Grafo(arg1:string,arg2:number,arg3:boolean):Promise<main.Grafo>;
 
-export function GuardarRegistro(arg1:main.Registro):Promise<main.Registro>;
+export function GuardarRegistro(arg1:main.Registro,arg2:Array<main.DescripcionSub>):Promise<main.Registro>;
 
 export function Listar(arg1:string):Promise<Array<main.Entrada>>;
 

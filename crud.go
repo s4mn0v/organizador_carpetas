@@ -46,8 +46,8 @@ func (a *App) registrarHistorial(accion, rel, detalle string) {
 // excelListo: si hay fichas afectadas, el Excel debe poder escribirse ANTES de tocar archivos.
 func (a *App) excelListo(rel string) (*baseDatos, error) {
 	b, err := a.base()
-	if err != nil || len(b.idsBajo(rel)) == 0 {
-		return nil, nil // sin Excel o sin fichas afectadas: nada que actualizar
+	if err != nil || len(b.idsBajo(rel))+b.subsBajo(rel) == 0 {
+		return nil, nil // sin Excel o sin fichas/descripciones afectadas: nada que actualizar
 	}
 	return a.baseEscritura()
 }
@@ -165,10 +165,11 @@ func (a *App) moverA(rel, abs, nueva, accion string) (string, error) {
 
 // ResumenEliminar: lo que se pierde al eliminar (para el diálogo de confirmación).
 type ResumenEliminar struct {
-	Carpetas int  `json:"carpetas"`
-	Archivos int  `json:"archivos"`
-	Fichas   int  `json:"fichas"`
-	Cortado  bool `json:"cortado"` // la carpeta es muy grande y se contó solo una parte
+	Carpetas      int  `json:"carpetas"`
+	Archivos      int  `json:"archivos"`
+	Fichas        int  `json:"fichas"`
+	Descripciones int  `json:"descripciones"` // explicaciones de subcarpetas que se borran
+	Cortado       bool `json:"cortado"`       // la carpeta es muy grande y se contó solo una parte
 }
 
 // ContarEliminar cuenta lo que hay dentro antes de eliminar.
@@ -198,6 +199,7 @@ func (a *App) ContarEliminar(rel string) (*ResumenEliminar, error) {
 	if b, _ := a.base(); b != nil {
 		if st, err := os.Stat(abs); err == nil && st.IsDir() {
 			r.Fichas = len(b.idsBajo(rel))
+			r.Descripciones = b.subsBajo(rel)
 		}
 	}
 	return r, nil
@@ -236,10 +238,9 @@ func (a *App) Eliminar(rel string) (string, error) {
 	}
 	ocultar(filepath.Join(a.raizActual(), carpetaPapelera))
 	if b != nil {
-		ids := b.idsBajo(rel)
-		if err := b.eliminar(ids, "Eliminar carpeta"); err != nil {
+		if err := b.eliminarBajo(rel); err != nil {
 			a.olvidarBase()
-			return destino, fmt.Errorf("se eliminó, pero no se pudieron borrar sus %d fichas del Excel: %w", len(ids), err)
+			return destino, fmt.Errorf("se eliminó, pero no se pudieron borrar sus fichas/descripciones del Excel: %w", err)
 		}
 		a.olvidarBase()
 	}

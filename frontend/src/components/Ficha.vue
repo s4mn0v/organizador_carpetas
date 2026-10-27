@@ -8,20 +8,27 @@ const props = defineProps({
   editando: Boolean,
   rutas: {type: Array, default: () => []},
   ocupado: Boolean,
+  arbol: {type: Array, default: () => []},   // subcarpetas de la carpeta principal: {ruta, nombre, nivel, descripcion}
+  arbolCortado: Boolean,
 })
 const emit = defineEmits(['editar', 'guardar', 'cancelar', 'eliminar'])
 
 // Orden de los grupos (los que no estén aquí van al final, en el orden de la hoja Campos).
-const ORDEN = ['General', 'Gestión documental', 'Notas']
+const ORDEN = ['General']
 
 const borrador = ref({})
 const ruta = ref('')
 const mostrarVacios = ref(false)
+const subBorrador = ref({})   // ruta subcarpeta -> descripción
 
-watch(() => [props.registro, props.editando], () => {
+watch(() => [props.registro, props.editando, props.arbol], () => {
   borrador.value = {...(props.registro.valores || {})}
   ruta.value = props.registro.ruta || ''
+  subBorrador.value = Object.fromEntries(props.arbol.map((s) => [s.ruta, s.descripcion || '']))
 }, {immediate: true, deep: true})
+
+const subsVisibles = computed(() => (props.editando || mostrarVacios.value ? props.arbol : props.arbol.filter((s) => s.descripcion)))
+const subsDescritas = computed(() => props.arbol.filter((s) => s.descripcion).length)
 
 const grupos = computed(() => {
   const m = new Map()
@@ -53,10 +60,11 @@ function semaforo(c) {
 const nombreSemaforo = {rojo: 'No cumple — acción correctiva', amarillo: 'En riesgo — acción preventiva', verde: 'Cumple'}
 const marcado = (v) => /^x$/i.test((v || '').trim()) || v === '1' || /^s[ií]$/i.test((v || '').trim())
 
-const vacioTotal = computed(() => Object.values(props.registro.valores || {}).every((v) => !v))
+const vacioTotal = computed(() => Object.values(props.registro.valores || {}).every((v) => !v) && !subsDescritas.value)
 
 function guardar() {
-  emit('guardar', {...props.registro, ruta: ruta.value, valores: {...borrador.value}})
+  const subs = props.arbol.map((s) => ({ruta: s.ruta, descripcion: (subBorrador.value[s.ruta] || '').trim(), actualizado: ''}))
+  emit('guardar', {...props.registro, ruta: ruta.value, valores: {...borrador.value}}, subs)
 }
 function alternarMarca(c) {
   borrador.value[c.nombre] = marcado(borrador.value[c.nombre]) ? '' : 'X'
@@ -139,6 +147,23 @@ function alternarMarca(c) {
         </dl>
       </section>
     </template>
+    <!-- Subcarpetas: explicación de cada una -->
+    <section class="grupo subcarpetas">
+      <h3>Subcarpetas <span class="cuenta">{{ subsDescritas }} de {{ arbol.length }} descritas</span></h3>
+      <p v-if="!arbol.length" class="nota-sub">Esta carpeta no tiene subcarpetas.</p>
+      <p v-else-if="!subsVisibles.length" class="nota-sub">
+        Ninguna subcarpeta tiene explicación todavía. Use “Editar ficha” para describir para qué sirve cada una.
+      </p>
+      <ul v-else class="lista-sub">
+        <li v-for="s in subsVisibles" :key="s.ruta" :style="{'--n': s.nivel - 1}" :class="{editando}">
+          <div class="nom-sub" :title="s.ruta"><Icono nombre="carpeta" class="ic-sub"/>{{ s.nombre }}</div>
+          <textarea v-if="editando" v-model="subBorrador[s.ruta]" class="campo-input" rows="1"
+                    :placeholder="'¿Qué se guarda en ' + s.nombre + '?'"></textarea>
+          <p v-else class="desc-sub" :class="{muted: !s.descripcion}">{{ s.descripcion || 'Sin descripción' }}</p>
+        </li>
+      </ul>
+      <p v-if="arbolCortado" class="nota-sub">Hay demasiadas subcarpetas: se muestran las primeras 600.</p>
+    </section>
   </article>
 </template>
 
@@ -157,6 +182,15 @@ function alternarMarca(c) {
 .vacia { margin: 0; padding: 18px 16px; color: var(--tinta-2); }
 .grupo { padding: 14px 16px 16px; border-bottom: 1px solid var(--linea-2); }
 .grupo:last-child { border-bottom: 0; }
+.subcarpetas h3 .cuenta { margin-left: 6px; font-weight: 400; color: var(--tinta-3); }
+.nota-sub { margin: 0; font-size: var(--t-s); color: var(--tinta-2); }
+.lista-sub { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.lista-sub li { display: grid; grid-template-columns: minmax(180px, 32%) 1fr; gap: 12px; align-items: start; padding: 6px 0 6px calc(var(--n) * 18px); border-bottom: 1px dashed var(--linea-2); }
+.lista-sub li:last-child { border-bottom: 0; }
+.nom-sub { display: flex; align-items: center; gap: 6px; font-size: var(--t-s); font-weight: 500; overflow-wrap: anywhere; padding-top: 2px; }
+.ic-sub { width: 15px; height: 15px; flex: none; color: var(--ambar-oscuro); }
+.desc-sub { margin: 0; font-size: var(--t-s); white-space: pre-wrap; }
+.lista-sub textarea { min-height: 34px; resize: vertical; font-size: var(--t-s); }
 h3 { margin: 0 0 10px; font-size: var(--t-s); font-weight: 600; color: var(--riel); }
 .campos {
   display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));

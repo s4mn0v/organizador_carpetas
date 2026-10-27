@@ -51,16 +51,16 @@ onMounted(() => caja.value?.focus())
             <p>La aplicación sirve para ordenar una carpeta (local o de red) y documentar sus subcarpetas. Trabaja con tres cosas:</p>
             <div class="tarjetas">
               <div><b>La carpeta raíz</b><span>La que usted elige, por ejemplo <code>Z:\MANTENIMIENTO\PRIVADA\14. Dirección Mtto</code>. Todo se hace dentro de ella.</span></div>
-              <div><b>El Excel de fichas</b><span><code>Fichas tecnicas carpetas.xlsx</code>, guardado en la raíz: una fila (ficha técnica) por carpeta o subcarpeta.</span></div>
+              <div><b>El Excel de fichas</b><span><code>Fichas tecnicas carpetas.xlsx</code>, guardado en la raíz: una ficha técnica por carpeta principal, con la explicación de sus subcarpetas.</span></div>
               <div><b>La papelera de la app</b><span><code>_papelera_organizador</code>, en la raíz: lo que elimine va ahí, no se borra.</span></div>
             </div>
             <h4>La idea en una frase</h4>
-            <p class="destacado">Elija la raíz → navegue las carpetas → organícelas (crear, renombrar, mover) → documente cada una con su <b>ficha técnica</b>.</p>
+            <p class="destacado">Elija la raíz → navegue las carpetas → organícelas (crear, renombrar, mover) → documente cada carpeta principal con su <b>ficha técnica</b>.</p>
             <h4>Reglas que la app siempre cumple</h4>
             <ul>
               <li>Los cambios se hacen <b>directo en la carpeta</b>: lo que vea aquí es lo que hay en el disco o en Z.</li>
               <li><b>Nada se borra de golpe.</b> Eliminar mueve a <code>_papelera_organizador</code> (en Z la papelera de Windows no existe).</li>
-              <li>Si renombra o mueve una carpeta, su ficha <b>y las de sus subcarpetas</b> se actualizan solas en el Excel.</li>
+              <li>Si renombra o mueve una carpeta, su ficha y las explicaciones de sus subcarpetas se actualizan solas en el Excel.</li>
               <li>Cada cambio queda en la hoja <b>Historial</b> del Excel.</li>
             </ul>
           </template>
@@ -133,19 +133,28 @@ onMounted(() => caja.value?.focus())
           <!-- 6 -->
           <template v-else-if="tema === 'fichas'">
             <h3>Fichas técnicas (Excel)</h3>
-            <p>Cada carpeta o subcarpeta puede tener una ficha en <code>Fichas tecnicas carpetas.xlsx</code>, en la raíz.</p>
+            <p>Las fichas van en las <b>carpetas principales</b>: las que están directo en la raíz (por ejemplo <code>1. Ejecución</code>). Las subcarpetas no llevan ficha propia: se <b>explican dentro</b> de la ficha de su carpeta principal.</p>
             <ol class="pasos">
               <li>Si no existe el Excel, vaya a la raíz y pulse <b>Crear Excel de fichas</b>.</li>
-              <li>Seleccione una carpeta → <b>Crear ficha técnica</b>.</li>
-              <li>Llene los campos → <b>Guardar en Excel</b>.</li>
+              <li>Abra una carpeta principal → <b>Crear ficha técnica</b>.</li>
+              <li>Llene la sección <b>General</b>.</li>
+              <li>En <b>Subcarpetas</b> escriba para qué sirve cada una (todas las que tiene, en todos los niveles). Las que deje vacías no se guardan.</li>
+              <li><b>Guardar en Excel</b>.</li>
             </ol>
+            <h4>Qué se ve en cada carpeta</h4>
+            <ul>
+              <li><b>Raíz</b>: cuáles carpetas principales tienen ficha y cuáles no.</li>
+              <li><b>Carpeta principal</b>: su ficha completa, con la explicación de sus subcarpetas.</li>
+              <li><b>Subcarpeta</b>: su explicación y un botón para ir a la ficha de su carpeta principal.</li>
+            </ul>
             <h4>Hojas del Excel</h4>
             <ul>
-              <li><b>Carpetas</b>: una fila por ficha. La columna “Ruta carpeta” la une con su carpeta.</li>
-              <li><b>Campos</b>: decide qué campos tiene la ficha, en qué grupo y de qué tipo (texto, largo, lista con opciones, número, marca). Puede agregar campos aquí: agregue también la columna con el mismo nombre en la hoja Carpetas.</li>
+              <li><b>Carpetas</b>: una fila por ficha (carpetas principales).</li>
+              <li><b>Subcarpetas</b>: una fila por subcarpeta explicada (ruta y descripción).</li>
+              <li><b>Campos</b>: qué campos tiene la ficha y de qué tipo. Puede agregar campos aquí (y la columna con el mismo nombre en la hoja Carpetas).</li>
               <li><b>Historial</b>: cada cambio hecho desde la app.</li>
             </ul>
-            <p class="nota"><b>Importante:</b> si el Excel está abierto en Excel, la app no puede escribir y lo avisa. Ciérrelo y vuelva a intentar.</p>
+            <p class="nota">Si renombra o mueve una subcarpeta, su explicación la sigue. Si el Excel está abierto en Excel, la app no puede escribir y lo avisa.</p>
           </template>
 
           <!-- 7 -->

@@ -20,6 +20,22 @@ export namespace main {
 	        this.orden = source["orden"];
 	    }
 	}
+	export class DescripcionSub {
+	    ruta: string;
+	    descripcion: string;
+	    actualizado: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new DescripcionSub(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.ruta = source["ruta"];
+	        this.descripcion = source["descripcion"];
+	        this.actualizado = source["actualizado"];
+	    }
+	}
 	export class Entrada {
 	    nombre: string;
 	    ruta: string;
@@ -76,6 +92,24 @@ export namespace main {
 		    return a;
 		}
 	}
+	export class SubcarpetaFicha {
+	    ruta: string;
+	    nombre: string;
+	    nivel: number;
+	    descripcion: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new SubcarpetaFicha(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.ruta = source["ruta"];
+	        this.nombre = source["nombre"];
+	        this.nivel = source["nivel"];
+	        this.descripcion = source["descripcion"];
+	    }
+	}
 	export class Registro {
 	    id: number;
 	    ruta: string;
@@ -101,6 +135,12 @@ export namespace main {
 	    archivos: number;
 	    tamanoTotal: number;
 	    registros: Registro[];
+	    esPrincipal: boolean;
+	    arbol: SubcarpetaFicha[];
+	    arbolCortado: boolean;
+	    principal: string;
+	    principalFicha: boolean;
+	    descripcion: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new DetalleCarpeta(source);
@@ -114,6 +154,12 @@ export namespace main {
 	        this.archivos = source["archivos"];
 	        this.tamanoTotal = source["tamanoTotal"];
 	        this.registros = this.convertValues(source["registros"], Registro);
+	        this.esPrincipal = source["esPrincipal"];
+	        this.arbol = this.convertValues(source["arbol"], SubcarpetaFicha);
+	        this.arbolCortado = source["arbolCortado"];
+	        this.principal = source["principal"];
+	        this.principalFicha = source["principalFicha"];
+	        this.descripcion = source["descripcion"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -158,6 +204,7 @@ export namespace main {
 	    campos: Campo[];
 	    registros: number;
 	    sinCarpeta: Registro[];
+	    noPrincipal: Registro[];
 	    papeleraHay: boolean;
 	    nombreExcel: string;
 	    nombrePapelera: string;
@@ -177,6 +224,7 @@ export namespace main {
 	        this.campos = this.convertValues(source["campos"], Campo);
 	        this.registros = source["registros"];
 	        this.sinCarpeta = this.convertValues(source["sinCarpeta"], Registro);
+	        this.noPrincipal = this.convertValues(source["noPrincipal"], Registro);
 	        this.papeleraHay = source["papeleraHay"];
 	        this.nombreExcel = source["nombreExcel"];
 	        this.nombrePapelera = source["nombrePapelera"];
@@ -298,6 +346,7 @@ export namespace main {
 	    carpetas: number;
 	    archivos: number;
 	    fichas: number;
+	    descripciones: number;
 	    cortado: boolean;
 	
 	    static createFrom(source: any = {}) {
@@ -309,6 +358,7 @@ export namespace main {
 	        this.carpetas = source["carpetas"];
 	        this.archivos = source["archivos"];
 	        this.fichas = source["fichas"];
+	        this.descripciones = source["descripciones"];
 	        this.cortado = source["cortado"];
 	    }
 	}

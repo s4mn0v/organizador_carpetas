@@ -88,12 +88,14 @@ func (a *App) olvidarBase() {
 	a.mu.Unlock()
 }
 
-// rutasConFicha: carpetas (en minúsculas) que tienen al menos una ficha.
+// rutasConFicha: carpetas principales (en minúsculas) que tienen ficha.
 func (a *App) rutasConFicha() map[string]bool {
 	m := map[string]bool{}
 	if b, _ := a.base(); b != nil {
 		for _, r := range b.registros {
-			m[strings.ToLower(r.Ruta)] = true
+			if esPrincipal(r.Ruta) {
+				m[strings.ToLower(r.Ruta)] = true
+			}
 		}
 	}
 	return m
@@ -111,7 +113,8 @@ type Estado struct {
 	BaseError    string      `json:"baseError"`
 	Campos       []Campo     `json:"campos"`
 	Registros    int         `json:"registros"`
-	SinCarpeta   []*Registro `json:"sinCarpeta"` // fichas cuya carpeta ya no existe
+	SinCarpeta   []*Registro `json:"sinCarpeta"`  // fichas cuya carpeta ya no existe
+	NoPrincipal  []*Registro `json:"noPrincipal"` // fichas en la raíz o en subcarpetas (solo van en carpetas principales)
 	PapeleraHay  bool        `json:"papeleraHay"`
 	NombreExcel  string      `json:"nombreExcel"`
 	NombrePapele string      `json:"nombrePapelera"`
@@ -119,7 +122,7 @@ type Estado struct {
 
 func (a *App) Estado() (*Estado, error) {
 	raiz := a.raizActual()
-	st := &Estado{Raiz: raiz, Recientes: leerConfig().Recientes, SinCarpeta: []*Registro{}, Campos: []Campo{},
+	st := &Estado{Raiz: raiz, Recientes: leerConfig().Recientes, SinCarpeta: []*Registro{}, NoPrincipal: []*Registro{}, Campos: []Campo{},
 		NombreExcel: nombreBase, NombrePapele: carpetaPapelera}
 	if raiz == "" {
 		return st, nil
@@ -144,6 +147,8 @@ func (a *App) Estado() (*Estado, error) {
 		for _, r := range b.registros {
 			if abs, ok := rutaSegura(raiz, r.Ruta); !ok || !dirExiste(abs) {
 				st.SinCarpeta = append(st.SinCarpeta, r)
+			} else if !esPrincipal(r.Ruta) {
+				st.NoPrincipal = append(st.NoPrincipal, r)
 			}
 		}
 	case os.IsNotExist(err):
@@ -195,17 +200,35 @@ func (a *App) CrearBase() error {
 // AbrirBase abre el Excel de fichas.
 func (a *App) AbrirBase() error { return abrirConSistema(a.rutaBase()) }
 
-// GuardarRegistro crea o actualiza una ficha.
-func (a *App) GuardarRegistro(r Registro) (*Registro, error) {
+// esPrincipal: carpeta que está directo en la raíz (las únicas que llevan ficha técnica).
+func esPrincipal(rel string) bool { return rel != "" && !strings.Contains(rel, "/") }
+
+// principalDe: la carpeta principal a la que pertenece rel ("" si rel es la raíz).
+func principalDe(rel string) string {
+	if i := strings.Index(rel, "/"); i >= 0 {
+		return rel[:i]
+	}
+	return rel
+}
+
+// GuardarRegistro crea o actualiza la ficha de una carpeta principal junto con
+// las descripciones de sus subcarpetas.
+func (a *App) GuardarRegistro(r Registro, subs []DescripcionSub) (*Registro, error) {
 	a.op.Lock()
 	defer a.op.Unlock()
 	r.Ruta, _ = limpiarRel(r.Ruta)
+	if !esPrincipal(r.Ruta) && r.ID == 0 {
+		return nil, errors.New("las fichas técnicas solo se crean en las carpetas principales (las que están en la raíz)")
+	}
 	b, err := a.baseEscritura()
 	if err != nil {
 		return nil, err
 	}
 	defer a.olvidarBase()
-	return b.guardar(&r)
+	if subs == nil {
+		subs = []DescripcionSub{}
+	}
+	return b.guardar(&r, subs)
 }
 
 // EliminarRegistro borra una ficha (queda copia en el Historial).

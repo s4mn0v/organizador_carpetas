@@ -62,8 +62,8 @@ export function Grafo(arg1, arg2, arg3) {
   return window['go']['main']['App']['Grafo'](arg1, arg2, arg3);
 }
 
-export function GuardarRegistro(arg1) {
-  return window['go']['main']['App']['GuardarRegistro'](arg1);
+export function GuardarRegistro(arg1, arg2) {
+  return window['go']['main']['App']['GuardarRegistro'](arg1, arg2);
 }
 
 export function Listar(arg1) {

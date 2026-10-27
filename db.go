@@ -44,7 +44,17 @@ type baseDatos struct {
 	columnas  []string
 	campos    []Campo
 	registros []*Registro
+	subs      []*DescripcionSub // hoja "Subcarpetas"
 }
+
+// DescripcionSub explica una subcarpeta dentro de la ficha de su carpeta principal.
+type DescripcionSub struct {
+	Ruta        string `json:"ruta"`
+	Descripcion string `json:"descripcion"`
+	Actualizado string `json:"actualizado"`
+}
+
+const hojaSubcarpetas = "Subcarpetas"
 
 var errBloqueada = errors.New("la base de datos está abierta en Excel: ciérrela y vuelva a intentar")
 
@@ -134,6 +144,20 @@ func cargarBase(ruta string) (*baseDatos, error) {
 		b.campos = append(b.campos, Campo{Nombre: col, Grupo: "Otros", Tipo: "texto", Orden: 1000 + i})
 	}
 	sort.SliceStable(b.campos, func(i, j int) bool { return b.campos[i].Orden < b.campos[j].Orden })
+
+	// Subcarpetas: ruta | descripción | actualizado (si la hoja no existe, se crea al guardar).
+	if sf, err := f.GetRows(hojaSubcarpetas); err == nil {
+		for _, fila := range sf[min(1, len(sf)):] {
+			if len(fila) < 2 || strings.TrimSpace(fila[0]) == "" || strings.TrimSpace(fila[1]) == "" {
+				continue
+			}
+			d := &DescripcionSub{Ruta: rutaDesdeExcel(fila[0]), Descripcion: strings.TrimSpace(fila[1])}
+			if len(fila) > 2 {
+				d.Actualizado = strings.TrimSpace(fila[2])
+			}
+			b.subs = append(b.subs, d)
+		}
+	}
 	return b, nil
 }
 
@@ -261,8 +285,9 @@ func (b *baseDatos) escribirFila(f *excelize.File, fila int, r *Registro) error 
 	return nil
 }
 
-// guardar crea (ID 0) o actualiza un registro.
-func (b *baseDatos) guardar(r *Registro) (*Registro, error) {
+// guardar crea (ID 0) o actualiza una ficha y reemplaza las descripciones de sus subcarpetas
+// (subs == nil deja las descripciones como están).
+func (b *baseDatos) guardar(r *Registro, subs []DescripcionSub) (*Registro, error) {
 	f, pos, err := b.abrirEscritura()
 	if err != nil {
 		return nil, err
@@ -287,6 +312,34 @@ func (b *baseDatos) guardar(r *Registro) (*Registro, error) {
 	if err := b.escribirFila(f, fila, r); err != nil {
 		return nil, err
 	}
+	if subs != nil {
+		antes := map[string]*DescripcionSub{}
+		var quedan []*DescripcionSub
+		for _, d := range b.subs {
+			if dentroDe(d.Ruta, r.Ruta) && !strings.EqualFold(d.Ruta, r.Ruta) {
+				antes[strings.ToLower(d.Ruta)] = d
+			} else {
+				quedan = append(quedan, d)
+			}
+		}
+		for _, d := range subs {
+			d.Ruta, _ = limpiarRel(d.Ruta)
+			d.Descripcion = strings.TrimSpace(d.Descripcion)
+			if d.Descripcion == "" || !dentroDe(d.Ruta, r.Ruta) || strings.EqualFold(d.Ruta, r.Ruta) {
+				continue
+			}
+			d.Actualizado = ahora()
+			if a := antes[strings.ToLower(d.Ruta)]; a != nil && a.Descripcion == d.Descripcion {
+				d.Actualizado = a.Actualizado
+			}
+			nd := d
+			quedan = append(quedan, &nd)
+		}
+		b.subs = quedan
+		if err := b.escribirSubs(f); err != nil {
+			return nil, err
+		}
+	}
 	accion := "Actualizar ficha"
 	if nuevo {
 		accion = "Crear ficha"
@@ -296,6 +349,52 @@ func (b *baseDatos) guardar(r *Registro) (*Registro, error) {
 		return nil, err
 	}
 	return r, nil
+}
+
+// escribirSubs reescribe la hoja "Subcarpetas" con b.subs (ordenadas por ruta).
+func (b *baseDatos) escribirSubs(f *excelize.File) error {
+	if idx, _ := f.GetSheetIndex(hojaSubcarpetas); idx < 0 {
+		if _, err := f.NewSheet(hojaSubcarpetas); err != nil {
+			return err
+		}
+		f.SetColWidth(hojaSubcarpetas, "A", "A", 55)
+		f.SetColWidth(hojaSubcarpetas, "B", "B", 90)
+		f.SetColWidth(hojaSubcarpetas, "C", "C", 17)
+	}
+	filas, _ := f.GetRows(hojaSubcarpetas)
+	for i := len(filas); i >= 2; i-- {
+		f.RemoveRow(hojaSubcarpetas, i)
+	}
+	f.SetSheetRow(hojaSubcarpetas, "A1", &[]interface{}{"Ruta subcarpeta", "Descripción", "Actualizado"})
+	sort.SliceStable(b.subs, func(i, j int) bool { return strings.ToLower(b.subs[i].Ruta) < strings.ToLower(b.subs[j].Ruta) })
+	for i, d := range b.subs {
+		celda, _ := excelize.CoordinatesToCellName(1, i+2)
+		if err := f.SetSheetRow(hojaSubcarpetas, celda, &[]interface{}{rutaAExcel(d.Ruta), d.Descripcion, d.Actualizado}); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// descripcionDe: la explicación guardada para una subcarpeta ("" si no tiene).
+func (b *baseDatos) descripcionDe(rel string) string {
+	for _, d := range b.subs {
+		if strings.EqualFold(d.Ruta, rel) {
+			return d.Descripcion
+		}
+	}
+	return ""
+}
+
+// subsBajo: cuántas descripciones hay dentro de rel (incluida rel).
+func (b *baseDatos) subsBajo(rel string) int {
+	n := 0
+	for _, d := range b.subs {
+		if dentroDe(d.Ruta, rel) {
+			n++
+		}
+	}
+	return n
 }
 
 // eliminar borra filas por ID y deja copia de los datos en el historial.
@@ -331,14 +430,10 @@ func (b *baseDatos) eliminar(ids []int, motivo string) error {
 	return guardarLibro(f)
 }
 
-// cambiarRuta actualiza "Ruta carpeta" de la carpeta movida/renombrada y de todas sus subcarpetas.
+// cambiarRuta actualiza la ruta de las fichas y de las descripciones de subcarpetas
+// de la carpeta movida/renombrada y de todo lo que tiene dentro.
 func (b *baseDatos) cambiarRuta(vieja, nueva string) (int, error) {
-	afectadas := 0
-	for _, r := range b.registros {
-		if dentroDe(r.Ruta, vieja) {
-			afectadas++
-		}
-	}
+	afectadas := len(b.idsBajo(vieja)) + b.subsBajo(vieja)
 	if afectadas == 0 {
 		return 0, nil
 	}
@@ -365,8 +460,54 @@ func (b *baseDatos) cambiarRuta(vieja, nueva string) (int, error) {
 			f.SetCellValue(hojaFichas, celda, ahora())
 		}
 	}
-	historial(f, "Mover / renombrar", rutaAExcel(vieja), fmt.Sprintf("Nueva ruta: %s (%d fichas)", rutaAExcel(nueva), afectadas))
+	if b.subsBajo(vieja) > 0 {
+		for _, d := range b.subs {
+			if dentroDe(d.Ruta, vieja) {
+				d.Ruta = nueva + d.Ruta[len(vieja):]
+			}
+		}
+		if err := b.escribirSubs(f); err != nil {
+			return 0, err
+		}
+	}
+	historial(f, "Mover / renombrar", rutaAExcel(vieja), fmt.Sprintf("Nueva ruta: %s (%d registros del Excel)", rutaAExcel(nueva), afectadas))
 	return afectadas, guardarLibro(f)
+}
+
+// eliminarBajo borra las fichas y las descripciones de la carpeta eliminada y de su contenido
+// (las fichas quedan copiadas en el Historial).
+func (b *baseDatos) eliminarBajo(rel string) error {
+	ids := b.idsBajo(rel)
+	nSubs := b.subsBajo(rel)
+	if len(ids) == 0 && nSubs == 0 {
+		return nil
+	}
+	if len(ids) > 0 {
+		if err := b.eliminar(ids, "Eliminar carpeta"); err != nil {
+			return err
+		}
+	}
+	if nSubs == 0 {
+		return nil
+	}
+	f, _, err := b.abrirEscritura()
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	var quedan []*DescripcionSub
+	for _, d := range b.subs {
+		if dentroDe(d.Ruta, rel) {
+			historial(f, "Eliminar descripción", rutaAExcel(d.Ruta), d.Descripcion)
+		} else {
+			quedan = append(quedan, d)
+		}
+	}
+	b.subs = quedan
+	if err := b.escribirSubs(f); err != nil {
+		return err
+	}
+	return guardarLibro(f)
 }
 
 // idsBajo: fichas de la carpeta y de todo lo que tiene dentro.

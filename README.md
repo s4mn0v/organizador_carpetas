@@ -17,9 +17,12 @@ Aplicación de escritorio (Wails + Go + Vue) para organizar una carpeta (local o
 
 `Fichas tecnicas carpetas.xlsx`, en la **raíz elegida**. Si no existe, la app lo crea (botón en la raíz).
 
-- Hoja **Carpetas**: `ID`, `Ruta carpeta` (relativa a la raíz, `.` = la raíz) , `Actualizado` y un campo por columna.
-- Hoja **Campos**: cómo se muestra cada campo (grupo; tipo: texto, largo, lista, numero, marca; opciones de lista).
-  Se puede editar para agregar o cambiar campos.
+- Las fichas van **solo en las carpetas principales** (las que están directo en la raíz).
+  Las subcarpetas (todos los niveles) se **explican dentro** de la ficha de su carpeta principal.
+- Hoja **Carpetas**: `ID`, `Ruta carpeta`, `Actualizado` y los campos de la sección General
+  (nombre, descripción, proceso/área, responsable, tipo de contenido).
+- Hoja **Subcarpetas**: `Ruta subcarpeta`, `Descripción`, `Actualizado`.
+- Hoja **Campos**: cómo se muestra cada campo (grupo; tipo: texto, largo, lista, numero, marca; opciones).
 - Hoja **Historial**: cada cambio hecho desde la app.
 - Si el Excel está abierto en Excel, la app no escribe y lo avisa.
 
@@ -29,8 +32,8 @@ Aplicación de escritorio (Wails + Go + Vue) para organizar una carpeta (local o
 |---|---|---|
 | Nueva carpeta | Crea la carpeta | Anota en Historial |
 | Agregar archivos | Copia archivos de cualquier parte (si el nombre existe: `nombre (2)`) | Anota en Historial |
-| Renombrar / Mover | Renombra o mueve (una carpeta, con todo su contenido) | Actualiza la ruta de su ficha **y de las de sus subcarpetas** |
-| Eliminar | Mueve a `_papelera_organizador\<fecha>\<ruta>` en la raíz | Borra sus fichas (copiadas en Historial) |
+| Renombrar / Mover | Renombra o mueve (una carpeta, con todo su contenido) | Actualiza la ruta de su ficha y de las explicaciones de sus subcarpetas |
+| Eliminar | Mueve a `_papelera_organizador\<fecha>\<ruta>` en la raíz | Borra su ficha y las explicaciones de lo que contenía (copiadas en Historial) |
 
 No se usa la papelera de Windows porque en unidades de red no existe y borraría para siempre.
 `_papelera_organizador` y el Excel no se muestran en el árbol.
