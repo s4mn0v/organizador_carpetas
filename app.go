@@ -23,6 +23,9 @@ type App struct {
 	cache      *baseDatos // Excel leído (se relee si cambia en disco)
 	cacheFecha time.Time
 	cacheRuta  string
+
+	migrados  map[string]bool // Excel ya revisados para quitar las secciones retiradas
+	avisoMigr string          // mensaje para mostrar una vez tras limpiar el Excel
 }
 
 func NewApp() *App { return &App{} }
@@ -56,6 +59,10 @@ func (a *App) base() (*baseDatos, error) {
 		return b, nil
 	}
 	a.mu.Unlock()
+	a.migrarSiHaceFalta(ruta)
+	if i2, err := os.Stat(ruta); err == nil {
+		info = i2
+	}
 	b, err := cargarBase(ruta)
 	if err != nil {
 		return nil, err
@@ -64,6 +71,31 @@ func (a *App) base() (*baseDatos, error) {
 	a.cache, a.cacheRuta, a.cacheFecha = b, ruta, info.ModTime()
 	a.mu.Unlock()
 	return b, nil
+}
+
+// migrarSiHaceFalta quita una sola vez del Excel las secciones retiradas de la ficha.
+// Si el Excel está abierto, lo intenta la próxima vez (mientras tanto esas secciones no se muestran).
+func (a *App) migrarSiHaceFalta(ruta string) {
+	a.mu.Lock()
+	if a.migrados == nil {
+		a.migrados = map[string]bool{}
+	}
+	hecho := a.migrados[ruta]
+	raiz := a.raiz
+	a.mu.Unlock()
+	if hecho || raiz == "" {
+		return
+	}
+	nombres, respaldo, err := migrarBase(ruta, raiz)
+	if err != nil {
+		return
+	}
+	a.mu.Lock()
+	a.migrados[ruta] = true
+	if len(nombres) > 0 {
+		a.avisoMigr = fmt.Sprintf("Se quitaron del Excel las secciones Gestión documental y Notas (%d columnas). Respaldo en %s", len(nombres), respaldo)
+	}
+	a.mu.Unlock()
 }
 
 // baseEscritura: el Excel listo para modificar (sin caché y comprobando que no esté abierto).
@@ -118,6 +150,7 @@ type Estado struct {
 	PapeleraHay  bool        `json:"papeleraHay"`
 	NombreExcel  string      `json:"nombreExcel"`
 	NombrePapele string      `json:"nombrePapelera"`
+	Aviso        string      `json:"aviso"` // mensaje para mostrar una vez
 }
 
 func (a *App) Estado() (*Estado, error) {
@@ -137,6 +170,11 @@ func (a *App) Estado() (*Estado, error) {
 	}
 	st.NombreRaiz = filepath.Base(raiz)
 	st.Base = a.rutaBase()
+	defer func() {
+		a.mu.Lock()
+		st.Aviso, a.avisoMigr = a.avisoMigr, ""
+		a.mu.Unlock()
+	}()
 	st.PapeleraHay = dirExiste(filepath.Join(raiz, carpetaPapelera))
 	b, err := a.base()
 	switch {

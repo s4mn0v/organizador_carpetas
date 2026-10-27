@@ -194,6 +194,7 @@ export namespace main {
 	        this.destino = source["destino"];
 	    }
 	}
+	
 	export class Estado {
 	    raiz: string;
 	    nombreRaiz: string;
@@ -208,6 +209,7 @@ export namespace main {
 	    papeleraHay: boolean;
 	    nombreExcel: string;
 	    nombrePapelera: string;
+	    aviso: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new Estado(source);
@@ -228,6 +230,7 @@ export namespace main {
 	        this.papeleraHay = source["papeleraHay"];
 	        this.nombreExcel = source["nombreExcel"];
 	        this.nombrePapelera = source["nombrePapelera"];
+	        this.aviso = source["aviso"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -310,6 +313,8 @@ export namespace main {
 		    return a;
 		}
 	}
+	
+	
 	export class ResultadoBusqueda {
 	    entradas: Entrada[];
 	    cortada: boolean;

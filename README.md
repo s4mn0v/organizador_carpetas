@@ -25,6 +25,9 @@ Aplicación de escritorio (Wails + Go + Vue) para organizar una carpeta (local o
 - Hoja **Campos**: cómo se muestra cada campo (grupo; tipo: texto, largo, lista, numero, marca; opciones).
 - Hoja **Historial**: cada cambio hecho desde la app.
 - Si el Excel está abierto en Excel, la app no escribe y lo avisa.
+- Los Excel creados con la primera versión traían las secciones "Gestión documental" y "Notas":
+  la app las oculta y las quita del Excel sola (filas de Campos y columnas de Carpetas), guardando antes
+  un respaldo en `_papelera_organizador\respaldos Excel\`.
 
 ## Operaciones
 

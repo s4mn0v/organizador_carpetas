@@ -72,6 +72,7 @@ async function ejecutar(fn, exito) {
 async function recargarEstado() {
   try {
     estado.value = await Estado()
+    if (estado.value.aviso) avisar(estado.value.aviso)
   } catch (e) {
     avisar(mensajeError(e), 'error')
     estado.value = {raiz: '', recientes: [], campos: [], sinCarpeta: []}

@@ -145,6 +145,20 @@ func cargarBase(ruta string) (*baseDatos, error) {
 	}
 	sort.SliceStable(b.campos, func(i, j int) bool { return b.campos[i].Orden < b.campos[j].Orden })
 
+	// Las secciones retiradas (Gestión documental, Notas) no se muestran aunque sigan en el Excel.
+	retirados := map[string]bool{}
+	for _, c := range camposRetirados {
+		retirados[normal(c)] = true
+	}
+	visibles := b.campos[:0]
+	for _, c := range b.campos {
+		if esGrupoRetirado(c.Grupo) || (c.Orden >= 1000 && retirados[normal(c.Nombre)]) {
+			continue
+		}
+		visibles = append(visibles, c)
+	}
+	b.campos = visibles
+
 	// Subcarpetas: ruta | descripción | actualizado (si la hoja no existe, se crea al guardar).
 	if sf, err := f.GetRows(hojaSubcarpetas); err == nil {
 		for _, fila := range sf[min(1, len(sf)):] {
