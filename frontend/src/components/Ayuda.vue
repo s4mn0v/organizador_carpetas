@@ -54,9 +54,8 @@ onMounted(() => caja.value?.focus())
               <div><b>El Excel de fichas</b><span><code>Fichas tecnicas carpetas.xlsx</code>, guardado en la raíz: una ficha técnica por carpeta principal, con la explicación de sus subcarpetas.</span></div>
               <div><b>La papelera de la app</b><span><code>_papelera_organizador</code>, en la raíz: lo que elimine va ahí, no se borra.</span></div>
             </div>
-            <h4>La idea en una frase</h4>
             <p class="destacado">Elija la raíz → navegue las carpetas → organícelas (crear, renombrar, mover) → documente cada carpeta principal con su <b>ficha técnica</b>.</p>
-            <h4>Reglas que la app siempre cumple</h4>
+            <h4>Reglas</h4>
             <ul>
               <li>Los cambios se hacen <b>directo en la carpeta</b>: lo que vea aquí es lo que hay en el disco o en Z.</li>
               <li><b>Nada se borra de golpe.</b> Eliminar mueve a <code>_papelera_organizador</code> (en Z la papelera de Windows no existe).</li>
