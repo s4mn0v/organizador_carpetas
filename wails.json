@@ -1,0 +1,19 @@
+{
+  "$schema": "https://wails.io/schemas/config.v2.json",
+  "name": "organizador_carpetas",
+  "outputfilename": "organizador_carpetas",
+  "frontend:install": "npm install",
+  "frontend:build": "npm run build",
+  "frontend:dev:watcher": "npm run dev",
+  "frontend:dev:serverUrl": "auto",
+  "author": {
+    "name": "Samuel Novoa",
+    "email": ""
+  },
+  "info": {
+    "companyName": "SAO6 - Mantenimiento",
+    "productName": "Organizador de carpetas",
+    "productVersion": "1.0.0",
+    "comments": "Organiza carpetas y archivos con sus fichas técnicas en Excel"
+  }
+}
