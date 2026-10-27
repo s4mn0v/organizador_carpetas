@@ -48,3 +48,9 @@ No se usa la papelera de Windows porque en unidades de red no existe y borraría
 Red de carpetas y archivos (estilo Obsidian) desde la carpeta elegida: niveles configurables (1–6),
 con o sin archivos, resaltar por nombre, zoom con la rueda, arrastre, clic para seleccionar y doble clic para
 entrar en una carpeta o abrir un archivo. Máximo 2.500 elementos por vista.
+
+## Ubicaciones recientemente utilizados
+
+Para limpiar el "historial" de ubicaciones utilizadas recientemente ver el archivo generado automaticamente en:
+
+**C:\Users\nombre_usuario\AppData\Roaming\organizador_carpetas\config.json**
