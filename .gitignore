@@ -1,3 +1,8 @@
 build/bin
 node_modules
 frontend/dist
+
+# Certificados de firma: tienen la clave privada, NUNCA se suben al repositorio
+*.pfx
+*.p12
+*.cer
