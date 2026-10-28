@@ -13,8 +13,9 @@ import Vencidos from './components/Vencidos.vue'
 import {
   AbrirArchivo, AbrirBase, AbrirPapelera, AgregarArchivos, AgregarRaiz, AgregarRaizRuta, Archivo, Buscar, Carpeta, ColorRaiz,
   ContarEliminar, CrearBase, CrearCarpeta, Depurar, Eliminar, EliminarRegistro, Estado, GuardarRegistro, Listar,
-  MostrarEnCarpeta, Mover, QuitarRaiz, Renombrar, TamanoCarpeta,
+  MostrarEnCarpeta, Mover, OlvidarTamanos, QuitarRaiz, Renombrar, TamanoCarpeta,
 } from '../wailsjs/go/main/App'
+import {EventsOn} from '../wailsjs/runtime/runtime'
 import {
   errorNombre, esRaizRuta, fecha, fechaHora, hace, mensajeError, nombreDe, padreDe, raizDeRuta, relDe, rutaWin, SIN_DEPURAR,
   tamano, tamanoLargo, tipoArchivo,
@@ -44,7 +45,7 @@ const conArchivos = ref(true)
 const sel = ref({ruta: '', esCarpeta: true})
 const detalle = ref(null)             // DetalleCarpeta
 const archivo = ref(null)             // DetalleArchivo
-const tam = ref(null)                 // TamanoTotal de la carpeta elegida (con subcarpetas)
+const tamanos = reactive({})          // ruta -> TamanoTotal (con subcarpetas): calculado o lo que lleva sumado
 const fichaActiva = ref(0)
 const editando = ref(false)
 const orden = ref({col: 'nombre', asc: true})
@@ -186,12 +187,17 @@ function pedirColor(id) {
 // La app arranca sin carpetas y pide elegir una de una vez.
 onMounted(async () => {
   window.addEventListener('keydown', teclas)
+  // El backend avisa lo que va sumando de cada carpeta (aunque el usuario ya esté en otra).
+  EventsOn('tamano:progreso', (p) => { tamanos[p.ruta] = p })
   await reiniciar()
   if (!hayRaices.value) agregarRaiz()
 })
 
 async function recargarTodo() {
   const abiertas = Object.keys(hijos)
+  // Recargar vuelve a calcular los tamaños (por si algo cambió desde el Explorador).
+  await OlvidarTamanos()
+  for (const k of Object.keys(tamanos)) delete tamanos[k]
   await recargarEstado()
   await Promise.all(abiertas.map((r) => cargarDir(r, true)))
   await recargarSeleccion()
@@ -219,18 +225,29 @@ async function seleccionar(e, resetear = true) {
     avisar(mensajeError(err), 'error')
   }
 }
-// Tamaño y cantidad de archivos con todas las subcarpetas (puede tardar en red: se muestra cuando llega).
+// Tamaño y cantidad de archivos con todas las subcarpetas. El backend lo guarda: si ya se calculó llega
+// al instante; si se está calculando, sigue aunque el usuario cambie de carpeta. Solo se recalcula
+// cuando algo cambia en esa carpeta (crear, mover, renombrar, eliminar, agregar, depurar) o con Recargar.
 async function calcularTamano(r) {
-  if (!hayRaices.value) { tam.value = null; return }
-  if (tam.value?.ruta !== r || tam.value?.cancelado) tam.value = {ruta: r, cargando: true}
+  if (!hayRaices.value) return
   try {
-    const t = await TamanoCarpeta(r)
-    if (sel.value.ruta === r && !t.cancelado) tam.value = t
+    tamanos[r] = await TamanoCarpeta(r)
   } catch {
-    if (sel.value.ruta === r) tam.value = null
+    delete tamanos[r]
   }
 }
-const tamListo = computed(() => tam.value && tam.value.ruta === sel.value.ruta && !tam.value.cargando ? tam.value : null)
+// Lo que se muestra: el total guardado o lo que lleva sumado mientras recorre (sube en vivo).
+const tv = computed(() => tamanos[sel.value.ruta] || null)
+const sumando = computed(() => !tv.value || tv.value.cargando)
+const notaTam = computed(() => {
+  const t = tv.value
+  if (!t) return 'calculando…'
+  if (t.enCola) return 'en espera (hay otros cálculos en curso)…'
+  if (t.cargando) return `sumando… ${n(t.carpetas)} carpetas revisadas`
+  const h = t.hora ? new Date(t.hora).toLocaleTimeString('es-CO', {hour: '2-digit', minute: '2-digit'}) : ''
+  return `con todas sus subcarpetas${h ? ' · calculado ' + h : ''}`
+})
+const n = (x) => (x || 0).toLocaleString('es-CO')
 async function recargarSeleccion() {
   const s = sel.value
   try {
@@ -766,8 +783,8 @@ watch(dialogo, async (d) => {
             </header>
             <dl class="cifras">
               <div><dt>Carpetas raíz abiertas</dt><dd>{{ raices.length }}</dd></div>
-              <div><dt>Archivos (en todas)</dt><dd>{{ tamListo ? tamListo.archivos.toLocaleString('es-CO') : '…' }}<small>{{ tamListo ? (tamListo.cortado ? 'al menos (muy grande)' : 'en todas las subcarpetas') : 'calculando…' }}</small></dd></div>
-              <div><dt>Tamaño total</dt><dd>{{ tamListo ? tamanoLargo(tamListo.tamano) : '…' }}<small>{{ tamListo ? (tamListo.cortado ? 'al menos' : `${tamListo.carpetas.toLocaleString('es-CO')} carpetas`) : 'calculando…' }}</small></dd></div>
+              <div><dt>Archivos (en todas)</dt><dd :class="{sumando}">{{ n(tv?.archivos) }}<small>{{ sumando ? 'sumando…' : 'en todas las subcarpetas' }}</small></dd></div>
+              <div><dt>Tamaño total</dt><dd :class="{sumando}">{{ tamanoLargo(tv?.tamano) }}<small>{{ notaTam }}</small></dd></div>
             </dl>
             <div class="raices">
               <article v-for="r in raices" :key="r.id" class="tarjeta-raiz" :style="{'--cf': r.color}">
@@ -864,11 +881,11 @@ watch(dialogo, async (d) => {
             </template>
 
             <dl class="cifras">
-              <div><dt>Subcarpetas</dt><dd>{{ detalle.subcarpetas }}<small>{{ tamListo ? `${tamListo.carpetas.toLocaleString('es-CO')} en todos los niveles` : 'directas' }}</small></dd></div>
+              <div><dt>Subcarpetas</dt><dd>{{ detalle.subcarpetas }}<small>{{ tv ? `${n(tv.carpetas)}${sumando ? '…' : ''} en todos los niveles` : 'directas' }}</small></dd></div>
               <div><dt>Archivos</dt>
-                <dd>{{ tamListo ? tamListo.archivos.toLocaleString('es-CO') : '…' }}<small>{{ tamListo ? `${tamListo.cortado ? 'al menos · ' : ''}${detalle.archivos} aquí, el resto en subcarpetas` : 'contando en las subcarpetas…' }}</small></dd></div>
+                <dd :class="{sumando}">{{ n(tv?.archivos) }}<small>{{ sumando ? `sumando… (${detalle.archivos} aquí)` : `${detalle.archivos} aquí, el resto en subcarpetas` }}</small></dd></div>
               <div><dt>Tamaño de la carpeta</dt>
-                <dd>{{ tamListo ? tamanoLargo(tamListo.tamano) : '…' }}<small>{{ tamListo ? (tamListo.cortado ? 'al menos (es muy grande)' : 'con todas sus subcarpetas') : 'calculando…' }}</small></dd></div>
+                <dd :class="{sumando}">{{ tamanoLargo(tv?.tamano) }}<small>{{ notaTam }}</small></dd></div>
               <div><dt>Modificada</dt><dd class="pequeno">{{ fecha(detalle.carpeta.modificado) }}<small>{{ hace(detalle.carpeta.modificado) }}</small></dd></div>
               <div v-if="detalle.esPrincipal"><dt>Ficha técnica</dt><dd class="pequeno" :class="detalle.carpeta.ficha ? 'si' : 'no'">{{ detalle.carpeta.ficha ? 'Sí' : 'No tiene' }}</dd></div>
               <div v-else-if="!detalle.esRaiz"><dt>Explicada en la ficha</dt><dd class="pequeno" :class="detalle.descripcion ? 'si' : 'no'">{{ detalle.descripcion ? 'Sí' : 'No' }}</dd></div>
@@ -1112,6 +1129,10 @@ code { font-size: .92em; padding: 0 4px; border-radius: 3px; background: var(--l
 .cifras dd.pequeno { font-size: var(--t-l); display: grid; }
 .cifras dd small { display: block; margin-top: 2px; font-size: var(--t-xs); font-weight: 400; color: var(--tinta-3); }
 .cifras dd.si { color: var(--verde); }
+/* Total que todavía se está sumando: el número sube en vivo */
+.cifras dd.sumando { color: var(--foco); }
+.cifras dd.sumando small::after { content: ''; display: inline-block; width: 8px; height: 8px; margin-left: 6px; border: 2px solid var(--foco); border-right-color: transparent; border-radius: 50%; animation: girar-c .8s linear infinite; vertical-align: -1px; }
+@keyframes girar-c { to { transform: rotate(360deg); } }
 .cifras dd.no { color: var(--tinta-3); }
 .aviso { display: flex; align-items: center; gap: 12px; padding: 12px 16px; margin-bottom: 16px; background: var(--ambar-claro); border: 1px solid #f0d9a0; border-radius: var(--r-m); }
 .aviso > svg { width: 22px; height: 22px; color: var(--ambar-oscuro); flex: none; }

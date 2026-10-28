@@ -52,6 +52,8 @@ export function MostrarEnCarpeta(arg1:string):Promise<void>;
 
 export function Mover(arg1:string,arg2:string):Promise<string>;
 
+export function OlvidarTamanos():Promise<void>;
+
 export function QuitarRaiz(arg1:string):Promise<void>;
 
 export function Renombrar(arg1:string,arg2:string):Promise<string>;

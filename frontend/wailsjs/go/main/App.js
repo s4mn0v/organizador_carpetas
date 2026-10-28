@@ -102,6 +102,10 @@ export function Mover(arg1, arg2) {
   return window['go']['main']['App']['Mover'](arg1, arg2);
 }
 
+export function OlvidarTamanos() {
+  return window['go']['main']['App']['OlvidarTamanos']();
+}
+
 export function QuitarRaiz(arg1) {
   return window['go']['main']['App']['QuitarRaiz'](arg1);
 }

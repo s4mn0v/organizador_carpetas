@@ -68,7 +68,7 @@ func (a *App) CrearCarpeta(padre, nombre string) (string, error) {
 	if err := os.Mkdir(abs, 0o755); err != nil {
 		return "", fmt.Errorf("no se pudo crear la carpeta: %w", err)
 	}
-	a.olvidarTamanos()
+	a.olvidarTamanos(unir(ri.ID, rel))
 	a.registrarHistorial(ri, "Crear carpeta", rel, "")
 	return unir(ri.ID, rel), nil
 }
@@ -148,7 +148,7 @@ func (a *App) moverA(ri *raizInfo, rel, abs string, rd *raizInfo, nueva, accion 
 	if err := moverEntre(abs, absNueva); err != nil {
 		return "", fmt.Errorf("no se pudo %s (¿hay un archivo abierto?): %w", strings.ToLower(accion), err)
 	}
-	a.olvidarTamanos()
+	a.olvidarTamanos(unir(ri.ID, rel), unir(rd.ID, nueva))
 	if b != nil {
 		if _, err := b.cambiarRuta(rel, nueva); err != nil {
 			moverEntre(absNueva, abs)
@@ -238,7 +238,7 @@ func (a *App) Eliminar(v string) (string, error) {
 	if err := moverEntre(abs, absDest); err != nil {
 		return "", fmt.Errorf("no se pudo eliminar (¿hay un archivo abierto?): %w", err)
 	}
-	a.olvidarTamanos()
+	a.olvidarTamanos(v)
 	ocultar(filepath.Join(ri.Ruta, carpetaPapelera))
 	if b != nil {
 		if err := b.eliminarBajo(rel); err != nil {
@@ -266,7 +266,7 @@ func (a *App) AgregarArchivos(destino string) ([]string, error) {
 	}
 	a.op.Lock()
 	defer a.op.Unlock()
-	defer a.olvidarTamanos()
+	defer a.olvidarTamanos(destino)
 	var hechos []string
 	for _, o := range archivos {
 		rel := libre(ri.Ruta, relDest, filepath.Base(o))

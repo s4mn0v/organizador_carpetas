@@ -16,8 +16,10 @@ Aplicación de escritorio (Wails + Go + Vue) para organizar carpetas (locales o 
     vencidos (en una raíz: color, abrir su Excel, quitarla de la lista).
   - **Arrastrar y soltar** una carpeta o archivo sobre otra carpeta: mover (pide confirmar).
 - **Carpeta**: ruta navegable, cifras (subcarpetas, **archivos y tamaño de la carpeta con todas sus subcarpetas**,
-  fecha, ficha, retención), ficha técnica y contenido. El total se calcula en segundo plano (máx. 90 s; si no
-  alcanza, se muestra "al menos").
+  fecha, ficha, retención), ficha técnica y contenido. El total se calcula en segundo plano y el número va
+  subiendo mientras suma. Queda guardado: al volver a una carpeta aparece al instante, y el cálculo sigue aunque
+  se cambie de carpeta. Solo se recalcula si algo cambia en ella (crear, renombrar, mover, eliminar, agregar,
+  depurar), en sus carpetas superiores o con **Recargar** (F5). Las subcarpetas ya calculadas no se recorren otra vez.
 - **Archivo**: tipo, tamaño, fechas, ubicación; abrir, mostrar en el Explorador, renombrar, mover, eliminar.
 - Atajos: `F1` ayuda, `F2` renombrar, `F5` recargar.
 

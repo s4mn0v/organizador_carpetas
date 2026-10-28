@@ -652,9 +652,10 @@ export namespace main {
 	    tamano: number;
 	    archivos: number;
 	    carpetas: number;
-	    cortado: boolean;
-	    cancelado: boolean;
+	    cargando: boolean;
+	    enCola: boolean;
 	    segundos: number;
+	    hora: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new TamanoTotal(source);
@@ -666,9 +667,10 @@ export namespace main {
 	        this.tamano = source["tamano"];
 	        this.archivos = source["archivos"];
 	        this.carpetas = source["carpetas"];
-	        this.cortado = source["cortado"];
-	        this.cancelado = source["cancelado"];
+	        this.cargando = source["cargando"];
+	        this.enCola = source["enCola"];
 	        this.segundos = source["segundos"];
+	        this.hora = source["hora"];
 	    }
 	}
 

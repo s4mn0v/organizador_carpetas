@@ -321,8 +321,8 @@ type ResultadoDepurar struct {
 func (a *App) Depurar(rutas []string) (*ResultadoDepurar, error) {
 	a.op.Lock()
 	defer a.op.Unlock()
-	defer a.olvidarTamanos()
 	res := &ResultadoDepurar{Errores: []string{}, Movidas: []string{}}
+	defer func() { a.olvidarTamanos(res.Movidas...) }()
 	sello := time.Now().Format("2006-01-02 150405") + " depuracion"
 	type hecho struct{ rel, destino string }
 	porRaiz := map[*raizInfo][]hecho{}

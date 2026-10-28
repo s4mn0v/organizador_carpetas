@@ -138,6 +138,7 @@ func (a *App) AgregarRaizRuta(dir string) (*Raiz, error) {
 	ri := &raizInfo{Raiz: Raiz{ID: fmt.Sprintf("r%d", a.sigID), Ruta: dir, Nombre: etiquetaRaiz(dir), Color: color}}
 	a.raices = append(a.raices, ri)
 	recordarRaiz(dir)
+	a.olvidarTamanos("") // el total del Inicio cambia
 	return &ri.Raiz, nil
 }
 
@@ -148,6 +149,7 @@ func (a *App) QuitarRaiz(id string) error {
 	for i, ri := range a.raices {
 		if ri.ID == id {
 			a.raices = append(a.raices[:i], a.raices[i+1:]...)
+			a.olvidarTamanos(id)
 			return nil
 		}
 	}

@@ -26,9 +26,10 @@ type App struct {
 	raices []*raizInfo
 	sigID  int
 
-	genTamano  atomic.Int64 // cálculo de tamaño en curso (uno nuevo cancela el anterior)
-	cacheTam   map[string]tamanoGuardado
-	cacheTamMu sync.Mutex
+	tamMu     sync.Mutex             // protege tams, tamCola y tamActivos
+	tams      map[string]*trabajoTam // tamaño de cada carpeta: calculado o calculándose
+	tamCola   []*trabajoTam          // esperando turno
+	tamActivo int                    // recorridos en curso (máx. 2 a la vez)
 
 	cancelarDup  atomic.Bool
 	cancelarVenc atomic.Bool
