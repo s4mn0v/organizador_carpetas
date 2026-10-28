@@ -112,14 +112,15 @@ Windows (Smart App Control / SmartScreen) bloquea los `.exe` sin firma con el me
 *"Bloqueamos … porque no pudimos comprobar su publicador"*. El `.exe` se firma con un certificado propio y
 se entrega junto con un script que hace que el equipo del usuario confíe en esa firma.
 
-**Al usuario se le entregan solo 2 archivos** (salen en `build\bin\` al ejecutar `firmar.ps1`):
+**Al usuario se le entregan 2 archivos (más el `.cer` opcional)** (salen en `build\bin\` al ejecutar `firmar.ps1`):
 
 | Archivo | Qué es |
 |---|---|
 | `organizador_carpetas.exe` | La app, ya firmada |
-| `instalar_certificado.ps1` | Instala la parte **pública** del certificado (la lleva adentro). Una vez por equipo |
+| `instalar_certificado.cmd` | Instala la parte **pública** del certificado (la lleva adentro). Una vez por equipo. **No usa PowerShell** |
+| `S4M-Certificate.cer` | La parte pública sola (opcional): para instalarla a mano o que TI la distribuya |
 
-> Un certificado propio solo es de confianza en los equipos donde se ejecutó `instalar_certificado.ps1`.
+> Un certificado propio solo es de confianza en los equipos donde se instaló (con `instalar_certificado.cmd`, a mano o por GPO).
 > Para que el `.exe` abra en cualquier equipo sin instalar nada hay que firmar con un certificado de una
 > entidad reconocida por Microsoft (comercial o Azure Trusted Signing).
 
@@ -154,43 +155,56 @@ powershell -ExecutionPolicy Bypass -File .\firmar.ps1 -SinCompilar  # solo firma
 
 El script compila (`wails build -webview2 embed`), toma el certificado de `Cert:\CurrentUser\My`
 (Subject con `S4M`; si no está, usa el `.pfx`), firma el `.exe` (SHA256 + sello de tiempo) y genera
-`build\bin\instalar_certificado.ps1`.
+`build\bin\instalar_certificado.cmd` y `build\bin\S4M-Certificate.cer`.
 
 > Al recompilar, el `.exe` sale **sin firma**: siempre se entrega lo que deja `firmar.ps1`.
 
 ### Para el usuario (una vez por equipo)
 
-1. Copie `organizador_carpetas.exe` e `instalar_certificado.ps1` a la **misma carpeta**.
-2. Clic derecho en `instalar_certificado.ps1` → **Ejecutar con PowerShell**.
-3. Acepte el permiso de administrador. Si no tiene, se instala solo para su usuario y Windows muestra una
+PowerShell suele estar bloqueado en los equipos de la empresa, por eso el instalador es un `.cmd` (usa `certutil`,
+que viene con Windows).
+
+**Opción A: doble clic (recomendada)**
+
+1. Copie `organizador_carpetas.exe` e `instalar_certificado.cmd` a la **misma carpeta**.
+2. Clic derecho en `instalar_certificado.cmd` → **Ejecutar como administrador** (lo instala para todo el equipo).
+   Si no tiene permisos de administrador, haga **doble clic**: se instala solo para su usuario y Windows muestra una
    **Advertencia de seguridad** ("¿Desea instalar este certificado?"): responda **Sí**.
-4. Debe aparecer *"Listo: el equipo confía en organizador_carpetas.exe"*. Presione Enter.
-5. Abra `organizador_carpetas.exe`.
+3. Debe decir *"Listo: el certificado quedó instalado"*. Presione una tecla.
+4. Abra `organizador_carpetas.exe`.
+
+**Opción B: a mano, sin ejecutar nada** (si también los `.cmd` están bloqueados)
+
+1. Doble clic en `S4M-Certificate.cer` → **Instalar certificado…**
+2. Ubicación: **Equipo local** (pide administrador) o **Usuario actual** → Siguiente.
+3. **Colocar todos los certificados en el siguiente almacén** → Examinar → **Entidades de certificación raíz de confianza** → Siguiente → Finalizar → **Sí**.
+4. Repita los pasos 1 a 3 eligiendo el almacén **Editores de confianza**.
+
+**Opción C: TI para todos los equipos (nadie hace nada)**: GPO → *Configuración del equipo → Directivas →
+Configuración de Windows → Configuración de seguridad → Directivas de clave pública* → importar
+`S4M-Certificate.cer` en **Entidades de certificación raíz de confianza** y en **Editores de confianza**.
 
 Las versiones nuevas del `.exe` no necesitan repetir el paso: basta con reemplazar el `.exe`.
 Solo se repite si se crea un certificado nuevo.
 
-Si al hacer clic derecho no aparece *Ejecutar con PowerShell* o lo bloquea, en PowerShell:
-
-```powershell
-powershell -ExecutionPolicy Bypass -File "C:\ruta\instalar_certificado.ps1"
-```
-
 Comprobar a mano: clic derecho al `.exe` → **Propiedades → Firmas digitales**, o
-`Get-AuthenticodeSignature .\organizador_carpetas.exe` (`Valid` = el equipo confía).
+debe decir que la firma es correcta.
 
 > **Smart App Control** puede seguir bloqueando aunque el certificado esté instalado, porque solo acepta
 > entidades reconocidas por Microsoft. Si pasa: desactivarlo en *Seguridad de Windows → Control de
 > aplicaciones y del explorador → Smart App Control* (TI) o firmar con certificado comercial.
 
-**Quitar el certificado de un equipo**
+**Quitar el certificado de un equipo** (cmd como administrador; la huella la muestra `firmar.ps1`):
 
-```powershell
-Get-ChildItem Cert:\LocalMachine\Root, Cert:\LocalMachine\TrustedPublisher, Cert:\CurrentUser\Root, Cert:\CurrentUser\TrustedPublisher |
-    Where-Object Subject -like "*S4M*" | Remove-Item
+```bat
+certutil -delstore Root <huella>
+certutil -delstore TrustedPublisher <huella>
+rem sin administrador, lo instalado solo para el usuario:
+certutil -user -delstore Root <huella>
+certutil -user -delstore TrustedPublisher <huella>
 ```
 
 ### Renovar (antes de que venza)
 
-Repita el paso 1 y el 2, y entregue el `instalar_certificado.ps1` nuevo para que cada usuario lo ejecute.
+Repita el paso 1 y el 2, y entregue el `instalar_certificado.cmd` nuevo para que cada usuario lo ejecute.
 Los `.exe` ya firmados siguen siendo válidos por el sello de tiempo.
