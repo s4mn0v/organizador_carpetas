@@ -46,6 +46,8 @@ export function Grafo(arg1:string,arg2:number,arg3:boolean):Promise<main.Grafo>;
 
 export function GuardarRegistro(arg1:main.Registro,arg2:Array<main.DescripcionSub>):Promise<main.Registro>;
 
+export function LimpiarRecientes():Promise<void>;
+
 export function Listar(arg1:string):Promise<Array<main.Entrada>>;
 
 export function MostrarEnCarpeta(arg1:string):Promise<void>;
@@ -55,6 +57,8 @@ export function Mover(arg1:string,arg2:string):Promise<string>;
 export function OlvidarTamanos():Promise<void>;
 
 export function QuitarRaiz(arg1:string):Promise<void>;
+
+export function QuitarReciente(arg1:string):Promise<void>;
 
 export function Renombrar(arg1:string,arg2:string):Promise<string>;
 

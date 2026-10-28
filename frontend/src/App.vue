@@ -10,9 +10,11 @@ import Ayuda from './components/Ayuda.vue'
 import Menu from './components/Menu.vue'
 import Duplicados from './components/Duplicados.vue'
 import Vencidos from './components/Vencidos.vue'
+import Tour from './components/Tour.vue'
+import {pasosApp, pasosInicio} from './guia'
 import {
   AbrirArchivo, AbrirBase, AbrirPapelera, AgregarArchivos, AgregarRaiz, AgregarRaizRuta, Archivo, Buscar, Carpeta, ColorRaiz,
-  ContarEliminar, CrearBase, CrearCarpeta, Depurar, Eliminar, EliminarRegistro, Estado, GuardarRegistro, Listar,
+  ContarEliminar, CrearBase, CrearCarpeta, Depurar, LimpiarRecientes, QuitarReciente, Eliminar, EliminarRegistro, Estado, GuardarRegistro, Listar,
   MostrarEnCarpeta, Mover, OlvidarTamanos, QuitarRaiz, Renombrar, TamanoCarpeta,
 } from '../wailsjs/go/main/App'
 import {EventsOn} from '../wailsjs/runtime/runtime'
@@ -156,10 +158,34 @@ async function despuesDeAgregar(r) {
   await cargarDir(r.id)
   await seleccionar({ruta: r.id, esCarpeta: true})
   avisarFichas(r.id)
+  if (guia.value?.parte === 1) { await nextTick(); guia.value = {parte: 2} } // la guía sigue dentro de la app
 }
 async function agregarRaiz() {
   const r = await ejecutar(() => AgregarRaiz())
   await despuesDeAgregar(r)
+}
+async function limpiarRecientes() {
+  if (await ejecutar(() => LimpiarRecientes(), 'Lista de recientes borrada')) await recargarEstado()
+}
+async function quitarReciente(ruta) {
+  if (await ejecutar(() => QuitarReciente(ruta))) await recargarEstado()
+}
+
+/* ---------- Guía paso a paso ---------- */
+const guia = ref(null)                // {parte: 1} pantalla inicial · {parte: 2} dentro de la app
+const pasosGuia = computed(() => (guia.value?.parte === 1 ? pasosInicio(!!estado.value?.recientes?.length) : pasosApp))
+async function iniciarGuia() {
+  verAyuda.value = false
+  if (!hayRaices.value) { guia.value = {parte: 1}; return }
+  // Dentro de la app la guía se hace sobre una carpeta raíz.
+  vista.value = 'carpeta'
+  busqueda.value = ''
+  if (!esRaizRuta(sel.value.ruta)) await seleccionar({ruta: raizSel.value?.id || raices.value[0].id, esCarpeta: true})
+  guia.value = {parte: 2}
+}
+function terminarGuia() {
+  guia.value = null
+  avisar('Guía terminada. Puede repetirla desde Ayuda (F1) o desde el Inicio.')
 }
 async function usarReciente(ruta) {
   const r = await ejecutar(() => AgregarRaizRuta(ruta))
@@ -189,8 +215,7 @@ onMounted(async () => {
   window.addEventListener('keydown', teclas)
   // El backend avisa lo que va sumando de cada carpeta (aunque el usuario ya esté en otra).
   EventsOn('tamano:progreso', (p) => { tamanos[p.ruta] = p })
-  await reiniciar()
-  if (!hayRaices.value) agregarRaiz()
+  await reiniciar() // no abre el explorador: espera a que el usuario pulse "Elegir carpeta"
 })
 
 async function recargarTodo() {
@@ -637,9 +662,9 @@ watch(dialogo, async (d) => {
 </script>
 
 <template>
-  <div class="app">
+  <div class="app" :class="{'sin-raices': !hayRaices}">
     <!-- ================= SIDEBAR ================= -->
-    <aside class="sidebar">
+    <aside v-if="hayRaices" class="sidebar">
       <div class="marca">
         <strong>Organizador de carpetas</strong>
         <button class="agregar-raiz" title="Abrir otra carpeta raíz (cada una con su propio Excel de fichas)" @click="agregarRaiz">
@@ -708,12 +733,38 @@ watch(dialogo, async (d) => {
     <main class="principal" :class="{oscuro: vista === 'grafo' && hayRaices}">
       <!-- Sin carpetas -->
       <section v-if="!cargando && !hayRaices" class="pantalla-vacia">
+        <p class="sobre-titulo">Organizador de carpetas</p>
         <h1>Elija la carpeta que quiere organizar</h1>
-        <p>Puede ser una carpeta local o de red, y puede abrir varias (por ejemplo <code>MANTENIMIENTO\PRIVADA</code> y <code>RRHH\PRIVADA</code>): cada una lleva su propio Excel de fichas técnicas (<code>{{ estado?.nombreExcel || 'Fichas tecnicas carpetas.xlsx' }}</code>) y su color.</p>
-        <button class="btn primario" @click="agregarRaiz"><Icono nombre="carpeta"/>Elegir carpeta</button>
+        <p>Puede ser una carpeta local o de red, y puede abrir varias (por ejemplo <code>MANTENIMIENTO\PRIVADA</code> y <code>RRHH\PRIVADA</code>): cada una lleva su propio Excel de fichas técnicas y su color.</p>
+
+        <div class="que-es">
+          <div>
+            <strong>¿Qué es una carpeta raíz?</strong>
+            <p>Es la carpeta “de arriba” que la aplicación va a organizar. Todo pasa dentro de ella: ahí se guarda el Excel de fichas
+              (<code>{{ estado?.nombreExcel || 'Fichas tecnicas carpetas.xlsx' }}</code>) y la papelera de la aplicación.</p>
+          </div>
+          <ul class="arbolito" aria-label="Ejemplo">
+            <li class="r"><Icono nombre="carpeta"/><b>Z:\MANTENIMIENTO\PRIVADA</b><em>carpeta raíz · aquí va el Excel</em></li>
+            <li class="p"><Icono nombre="carpeta"/>1. Ejecución<em>carpeta principal · lleva ficha técnica</em></li>
+            <li class="s"><Icono nombre="carpeta"/>Informes 2025<em>subcarpeta · se explica en la ficha de su principal</em></li>
+            <li class="a"><Icono nombre="archivo"/>Informe enero.xlsx<em>archivo</em></li>
+          </ul>
+        </div>
+
+        <div class="acciones-inicio">
+          <button id="btn-elegir" class="btn primario grande" @click="agregarRaiz"><Icono nombre="carpeta"/>Elegir carpeta</button>
+          <button class="btn-guia" @click="iniciarGuia"><span class="brillo"></span><Icono nombre="guia"/>GUÍA<small>paso a paso</small></button>
+        </div>
+
         <div v-if="estado?.recientes?.length" class="recientes">
-          <p class="muted">Usadas recientemente</p>
-          <button v-for="r in estado.recientes" :key="r" class="reciente" @click="usarReciente(r)"><Icono nombre="carpeta"/>{{ r }}</button>
+          <div class="recientes-cab">
+            <p class="muted">Usadas recientemente</p>
+            <button class="enlace" title="Borra esta lista (no toca las carpetas)" @click="limpiarRecientes">Limpiar recientes</button>
+          </div>
+          <div v-for="r in estado.recientes" :key="r" class="fila-reciente">
+            <button class="reciente" @click="usarReciente(r)"><Icono nombre="carpeta"/>{{ r }}</button>
+            <button class="quitar-reciente" :aria-label="'Quitar ' + r + ' de recientes'" title="Quitar de la lista" @click="quitarReciente(r)"><Icono nombre="cerrar"/></button>
+          </div>
         </div>
       </section>
 
@@ -777,6 +828,7 @@ watch(dialogo, async (d) => {
             <header class="cabecera">
               <div class="titulo-carp"><Icono nombre="casa" class="ic-carp"/><h1>Inicio</h1></div>
               <div class="acciones">
+                <button class="btn" @click="iniciarGuia"><Icono nombre="guia"/>Guía</button>
                 <button class="btn primario" @click="agregarRaiz"><Icono nombre="carpeta-mas"/>Agregar carpeta raíz</button>
                 <button class="btn" @click="verGrafo('')"><Icono nombre="grafo"/>Ver en gráfico</button>
               </div>
@@ -1027,7 +1079,8 @@ watch(dialogo, async (d) => {
     </Dialogo>
 
     <Menu v-if="menu" v-bind="menu" @cerrar="menu = null"/>
-    <Ayuda v-if="verAyuda" @cerrar="verAyuda = false"/>
+    <Ayuda v-if="verAyuda" @cerrar="verAyuda = false" @guia="iniciarGuia"/>
+    <Tour v-if="guia" :key="guia.parte" :pasos="pasosGuia" @cerrar="guia = null" @terminar="terminarGuia"/>
 
     <div class="avisos" aria-live="polite">
       <div v-for="a in avisos" :key="a.id" class="toast" :class="a.tipo">{{ a.texto }}</div>
@@ -1037,6 +1090,7 @@ watch(dialogo, async (d) => {
 
 <style>
 .app { display: grid; grid-template-columns: 380px 1fr; height: 100vh; outline: none; }
+.app.sin-raices { grid-template-columns: 1fr; }
 
 /* ---- Sidebar ---- */
 .sidebar { display: flex; flex-direction: column; min-height: 0; background: var(--riel); color: var(--riel-tinta); }
@@ -1097,9 +1151,43 @@ watch(dialogo, async (d) => {
 .principal { overflow-y: auto; min-width: 0; }
 .principal.oscuro { overflow: hidden; background: #0d2730; }
 .pantalla-vacia, .detalle { max-width: 1180px; margin: 0 auto; padding: 24px 40px 64px; }
-.pantalla-vacia { display: grid; gap: 12px; justify-items: start; padding-top: 16vh; }
+.pantalla-vacia { display: grid; gap: 14px; justify-items: start; max-width: 860px; padding-top: 9vh; }
+.sobre-titulo { margin: 0; font-size: var(--t-xs) !important; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--ambar-oscuro) !important; }
+.que-es { display: grid; grid-template-columns: 1fr 1.1fr; gap: 18px; width: 100%; padding: 16px 18px; background: var(--superficie); border: 1px solid var(--linea); border-left: 4px solid var(--ambar); border-radius: var(--r-m); }
+.que-es strong { display: block; margin-bottom: 4px; }
+.que-es p { font-size: var(--t-s); }
+.arbolito { list-style: none; margin: 0; padding: 10px 12px; background: var(--papel); border-radius: var(--r-s); font-size: var(--t-s); display: grid; gap: 4px; }
+.arbolito li { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.arbolito svg { width: 15px; height: 15px; color: var(--ambar-oscuro); flex: none; }
+.arbolito .p { padding-left: 18px; } .arbolito .s { padding-left: 36px; } .arbolito .a { padding-left: 54px; }
+.arbolito .a svg { color: #2e8b57; }
+.arbolito em { font-style: normal; font-size: var(--t-xs); color: var(--tinta-3); }
+.acciones-inicio { display: flex; gap: 12px; align-items: center; margin-top: 4px; }
+.btn.grande { height: 44px; padding: 0 20px; font-size: var(--t-m); }
+.btn-guia {
+  position: relative; overflow: hidden; display: inline-flex; align-items: center; gap: 8px; height: 44px; padding: 0 20px;
+  border: 0; border-radius: 999px; background: linear-gradient(120deg, #f2b33d, #f5c862, #e89a2c); color: #3d2a00;
+  font-weight: 700; letter-spacing: .06em; box-shadow: 0 6px 18px rgba(232, 154, 44, .35); animation: flotar 2.4s ease-in-out infinite;
+}
+.btn-guia small { font-weight: 500; letter-spacing: 0; opacity: .8; }
+.btn-guia svg { width: 18px; height: 18px; animation: girar-guia 6s linear infinite; }
+.btn-guia::after { content: ''; position: absolute; inset: -4px; border-radius: inherit; border: 2px solid #f2b33d; animation: onda 2.4s ease-out infinite; pointer-events: none; }
+.btn-guia .brillo { position: absolute; top: 0; left: -60%; width: 40%; height: 100%; background: linear-gradient(100deg, transparent, rgba(255, 255, 255, .7), transparent); animation: brillo 3s ease-in-out infinite; }
+.btn-guia:hover { filter: brightness(1.05); animation-play-state: paused; }
+@keyframes flotar { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
+@keyframes onda { 0% { opacity: .8; transform: scale(1); } 100% { opacity: 0; transform: scale(1.25, 1.6); } }
+@keyframes brillo { 0%, 60% { left: -60%; } 100% { left: 130%; } }
+@keyframes girar-guia { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .btn-guia, .btn-guia svg, .btn-guia::after, .btn-guia .brillo { animation: none; } }
+.recientes-cab { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.recientes-cab .enlace { margin: 0; }
+.fila-reciente { display: flex; gap: 4px; }
+.fila-reciente .reciente { flex: 1; }
+.quitar-reciente { display: grid; place-items: center; width: 32px; border: 1px solid var(--linea); border-radius: var(--r-s); background: var(--superficie); color: var(--tinta-3); }
+.quitar-reciente:hover { color: var(--rojo); border-color: var(--rojo); }
+.quitar-reciente svg { width: 13px; height: 13px; }
 .pantalla-vacia p { color: var(--tinta-2); max-width: 64ch; margin: 0; }
-.recientes { display: grid; gap: 4px; margin-top: 18px; }
+.recientes { display: grid; gap: 4px; margin-top: 18px; width: 100%; max-width: 640px; }
 .recientes p { margin: 0 0 4px; font-size: var(--t-s); }
 .reciente { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border: 1px solid var(--linea); border-radius: var(--r-s); background: var(--superficie); text-align: left; font-size: var(--t-s); }
 .reciente:hover { border-color: var(--tinta-3); }

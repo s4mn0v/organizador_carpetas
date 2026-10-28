@@ -2,7 +2,7 @@
 import {nextTick, onMounted, ref} from 'vue'
 import Icono from './Icono.vue'
 
-const emit = defineEmits(['cerrar'])
+const emit = defineEmits(['cerrar', 'guia'])
 const TEMAS = [
   {id: 'inicio', titulo: 'Cómo funciona'},
   {id: 'barra', titulo: 'La barra lateral'},
@@ -37,6 +37,7 @@ onMounted(() => caja.value?.focus())
           <p class="sobre">Guía rápida</p>
           <h2>Cómo usar el organizador de carpetas</h2>
         </div>
+        <button class="ver-guia" title="Recorrido paso a paso por la pantalla" @click="emit('guia')"><Icono nombre="guia"/>Ver guía paso a paso</button>
         <button class="cerrar" aria-label="Cerrar" @click="emit('cerrar')"><Icono nombre="cerrar"/></button>
       </header>
 
@@ -318,4 +319,7 @@ tr:last-child td { border-bottom: 0; }
   nav button { white-space: nowrap; }
   .tarjetas { grid-template-columns: 1fr; }
 }
+.ver-guia { display: inline-flex; align-items: center; gap: 6px; margin-left: auto; margin-right: 10px; padding: 6px 12px; border: 0; border-radius: 999px; background: var(--ambar); color: #3d2a00; font-weight: 600; font-size: var(--t-s); }
+.ver-guia svg { width: 16px; height: 16px; }
+.ver-guia:hover { filter: brightness(1.05); }
 </style>

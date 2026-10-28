@@ -90,6 +90,10 @@ export function GuardarRegistro(arg1, arg2) {
   return window['go']['main']['App']['GuardarRegistro'](arg1, arg2);
 }
 
+export function LimpiarRecientes() {
+  return window['go']['main']['App']['LimpiarRecientes']();
+}
+
 export function Listar(arg1) {
   return window['go']['main']['App']['Listar'](arg1);
 }
@@ -108,6 +112,10 @@ export function OlvidarTamanos() {
 
 export function QuitarRaiz(arg1) {
   return window['go']['main']['App']['QuitarRaiz'](arg1);
+}
+
+export function QuitarReciente(arg1) {
+  return window['go']['main']['App']['QuitarReciente'](arg1);
 }
 
 export function Renombrar(arg1, arg2) {

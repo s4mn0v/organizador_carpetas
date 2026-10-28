@@ -74,3 +74,23 @@ func dirExiste(p string) bool {
 	st, err := os.Stat(p)
 	return err == nil && st.IsDir()
 }
+
+// LimpiarRecientes borra la lista de carpetas usadas recientemente (los colores se conservan).
+func (a *App) LimpiarRecientes() error {
+	c := leerConfig()
+	c.Recientes = nil
+	return guardarConfig(c)
+}
+
+// QuitarReciente quita una carpeta de la lista de recientes.
+func (a *App) QuitarReciente(dir string) error {
+	c := leerConfig()
+	var l []string
+	for _, r := range c.Recientes {
+		if !strings.EqualFold(r, dir) {
+			l = append(l, r)
+		}
+	}
+	c.Recientes = l
+	return guardarConfig(c)
+}

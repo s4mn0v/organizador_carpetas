@@ -6,6 +6,11 @@ Aplicación de escritorio (Wails + Go + Vue) para organizar carpetas (locales o 
 
 ## Uso
 
+- La app abre en una pantalla de bienvenida (sin barra lateral) que explica qué es una carpeta raíz. El explorador
+  de Windows solo se abre al pulsar **Elegir carpeta**. Las carpetas recientes se pueden abrir con un clic, quitar
+  una por una (×) o borrar con **Limpiar recientes**.
+- Botón **GUÍA** (también en el Inicio y en Ayuda → *Ver guía paso a paso*): recorrido que ilumina cada parte de
+  la pantalla, desde elegir la carpeta raíz hasta crear una carpeta (`frontend/src/guia.js`, componente `Tour.vue`).
 - Al abrir, elija una **carpeta raíz**. Con **Agregar carpeta raíz** se abren más: todas se ven juntas bajo
   **Inicio**, cada una con **su propio Excel de fichas** y **su color** de carpetas (automático: amarillo, azul,
   verde…; se cambia con clic derecho → *Cambiar color* y se recuerda). No se puede abrir una raíz dentro de otra.
