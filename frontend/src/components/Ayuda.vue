@@ -11,6 +11,9 @@ const TEMAS = [
   {id: 'crud', titulo: 'Crear, renombrar, mover, eliminar'},
   {id: 'fichas', titulo: 'Fichas técnicas (Excel)'},
   {id: 'grafo', titulo: 'Vista gráfica'},
+  {id: 'buscar', titulo: 'Buscar'},
+  {id: 'duplicados', titulo: 'Archivos duplicados'},
+  {id: 'vencidos', titulo: 'Retención y vencidos'},
   {id: 'problemas', titulo: 'Si algo sale mal'},
 ]
 const tema = ref('inicio')
@@ -48,14 +51,15 @@ onMounted(() => caja.value?.focus())
           <!-- 1 -->
           <template v-if="tema === 'inicio'">
             <h3>Cómo funciona</h3>
-            <p>La aplicación sirve para ordenar una carpeta (local o de red) y documentar sus subcarpetas. Trabaja con tres cosas:</p>
+            <p>La aplicación sirve para ordenar carpetas (locales o de red) y documentar sus subcarpetas. Trabaja con tres cosas:</p>
             <div class="tarjetas">
-              <div><b>La carpeta raíz</b><span>La que usted elige, por ejemplo <code>Z:\MANTENIMIENTO\PRIVADA\14. Dirección Mtto</code>. Todo se hace dentro de ella.</span></div>
-              <div><b>El Excel de fichas</b><span><code>Fichas tecnicas carpetas.xlsx</code>, guardado en la raíz: una ficha técnica por carpeta principal, con la explicación de sus subcarpetas.</span></div>
-              <div><b>La papelera de la app</b><span><code>_papelera_organizador</code>, en la raíz: lo que elimine va ahí, no se borra.</span></div>
+              <div><b>Las carpetas raíz</b><span>Las que usted elige, por ejemplo <code>Z:\MANTENIMIENTO\PRIVADA</code> y <code>Z:\RRHH\PRIVADA</code>. Puede abrir varias a la vez; cada una tiene su color.</span></div>
+              <div><b>El Excel de fichas</b><span><code>Fichas tecnicas carpetas.xlsx</code>, uno en cada raíz: una ficha técnica por carpeta principal, con la explicación de sus subcarpetas.</span></div>
+              <div><b>La papelera de la app</b><span><code>_papelera_organizador</code>, en cada raíz: lo que elimine o depure va ahí, no se borra.</span></div>
             </div>
-            <p class="destacado">Elija la raíz → navegue las carpetas → organícelas (crear, renombrar, mover) → documente cada carpeta principal con su <b>ficha técnica</b>.</p>
-            <h4>Reglas</h4>
+            <h4>La idea en una frase</h4>
+            <p class="destacado">Agregue las carpetas raíz → navegue → organícelas (crear, renombrar, mover) → documente cada carpeta principal con su <b>ficha técnica</b> y su <b>tiempo de retención</b> → limpie duplicados y vencidos.</p>
+            <h4>Reglas que la app siempre cumple</h4>
             <ul>
               <li>Los cambios se hacen <b>directo en la carpeta</b>: lo que vea aquí es lo que hay en el disco o en Z.</li>
               <li><b>Nada se borra de golpe.</b> Eliminar mueve a <code>_papelera_organizador</code> (en Z la papelera de Windows no existe).</li>
@@ -68,9 +72,9 @@ onMounted(() => caja.value?.focus())
           <template v-else-if="tema === 'barra'">
             <h3>La barra lateral</h3>
             <ul>
-              <li>Arriba, la <b>ruta de la raíz</b>: haga clic para elegir otra carpeta.</li>
-              <li><b>Carpetas / Vista gráfica</b>: cambia entre la vista normal y el gráfico.</li>
-              <li><b>Buscar</b>: busca por nombre en todas las carpetas, sin importar tildes ni mayúsculas (<kbd>Ctrl</kbd> + <kbd>F</kbd>).</li>
+              <li><b>Agregar carpeta raíz</b>: abre otra carpeta. Todas se ven juntas bajo <b>Inicio</b>, cada una con su color (por ejemplo amarillo para MANTENIMIENTO, azul para RRHH).</li>
+              <li><b>Carpetas / Gráfica / Duplicados / Vencidos</b>: cambia de vista.</li>
+              <li><b>Buscar</b>: busca por palabras en todas las carpetas raíz (<kbd>Ctrl</kbd> + <kbd>F</kbd>). Ver “Buscar”.</li>
               <li><b>Mostrar archivos</b>: muestra u oculta los archivos en el árbol.</li>
             </ul>
             <h4>El árbol</h4>
@@ -79,6 +83,8 @@ onMounted(() => caja.value?.focus())
                 <tr><td><span class="mas">›</span></td><td>Abre o cierra la carpeta sin seleccionarla.</td></tr>
                 <tr><td>Clic en el nombre</td><td>Selecciona la carpeta o el archivo y la abre a la derecha.</td></tr>
                 <tr><td><i class="p lleno"></i></td><td>La carpeta tiene ficha técnica en el Excel.</td></tr>
+                <tr><td>Clic derecho</td><td>Menú con todas las acciones: nueva carpeta, renombrar, mover, eliminar, ver en el gráfico, duplicados y vencidos. En una raíz: cambiar color o quitarla de la lista.</td></tr>
+                <tr><td>Arrastrar</td><td>Arrastre una carpeta o archivo y suéltelo sobre otra carpeta para moverlo (pide confirmar). Si se queda encima de una carpeta cerrada, se abre.</td></tr>
               </tbody>
             </table>
             <p class="nota">Cada carpeta se lee al abrirla, para que funcione rápido aunque la raíz esté en red. Si una carpeta tiene muchos archivos, aparece “Ver más”.</p>
@@ -95,11 +101,11 @@ onMounted(() => caja.value?.focus())
             <h3>Ver una carpeta</h3>
             <ol>
               <li>Arriba, la <b>ruta</b>: cada parte es un botón para subir de nivel.</li>
-              <li><b>Cifras</b>: subcarpetas, archivos, tamaño, fecha y si tiene ficha.</li>
+              <li><b>Cifras</b>: subcarpetas, <b>archivos y tamaño de la carpeta completa</b> (con todas sus subcarpetas; en red puede tardar unos segundos en aparecer), fecha, si tiene ficha y su retención.</li>
               <li><b>Ficha técnica</b>: la información de la carpeta guardada en el Excel.</li>
               <li><b>Contenido</b>: las subcarpetas y archivos. Haga clic en un encabezado para ordenar; doble clic en una fila para entrar o abrir.</li>
             </ol>
-            <p class="nota">En la raíz también verá si falta el Excel de fichas (botón para crearlo) y si hay fichas que apuntan a carpetas que ya no existen.</p>
+            <p class="nota">En una carpeta raíz también verá si falta su Excel de fichas (botón para crearlo) y si hay fichas que apuntan a carpetas que ya no existen. En <b>Inicio</b> están todas las raíces abiertas con el total de archivos y tamaño.</p>
           </template>
 
           <!-- 4 -->
@@ -122,7 +128,7 @@ onMounted(() => caja.value?.focus())
                 <tr><td><b>Nueva carpeta</b></td><td>Botón amarillo o “Nueva subcarpeta” en una carpeta.</td></tr>
                 <tr><td><b>Agregar archivos</b></td><td>Copia archivos de cualquier parte a la carpeta. Si ya existe uno igual, el nuevo queda como “nombre (2)”. El original no se toca.</td></tr>
                 <tr><td><b>Renombrar</b> (<kbd>F2</kbd>)</td><td>Cambia el nombre. En carpetas, sus fichas se actualizan.</td></tr>
-                <tr><td><b>Mover</b></td><td>Elija la carpeta destino en el árbol que aparece. Una carpeta se mueve con todo su contenido y sus fichas.</td></tr>
+                <tr><td><b>Mover</b></td><td>Elija la carpeta destino en el árbol que aparece, o arrástrela en la barra lateral. Una carpeta se mueve con todo su contenido y sus fichas. Se puede mover a otra raíz, salvo carpetas con fichas o explicaciones en el Excel de su raíz.</td></tr>
                 <tr><td><b>Eliminar</b></td><td>Pasa a <code>_papelera_organizador\fecha\…</code>. Si la carpeta tiene contenido o fichas, pide escribir el nombre para confirmar. Sus fichas se borran del Excel (quedan en Historial).</td></tr>
               </tbody>
             </table>
@@ -137,7 +143,8 @@ onMounted(() => caja.value?.focus())
               <li>Si no existe el Excel, vaya a la raíz y pulse <b>Crear Excel de fichas</b>.</li>
               <li>Abra una carpeta principal → <b>Crear ficha técnica</b>.</li>
               <li>Llene la sección <b>General</b>.</li>
-              <li>En <b>Subcarpetas</b> escriba para qué sirve cada una (todas las que tiene, en todos los niveles). Las que deje vacías no se guardan.</li>
+              <li>En <b>Retención de archivos</b> indique cuánto tiempo deben quedarse los archivos (ver “Retención y vencidos”).</li>
+              <li>En <b>Subcarpetas</b> escriba para qué sirve cada una (todas las que tiene, en todos los niveles) y, si necesita otra regla, su propia retención. Las que deje vacías no se guardan.</li>
               <li><b>Guardar en Excel</b>.</li>
             </ol>
             <h4>Qué se ve en cada carpeta</h4>
@@ -149,7 +156,7 @@ onMounted(() => caja.value?.focus())
             <h4>Hojas del Excel</h4>
             <ul>
               <li><b>Carpetas</b>: una fila por ficha (carpetas principales).</li>
-              <li><b>Subcarpetas</b>: una fila por subcarpeta explicada (ruta y descripción).</li>
+              <li><b>Subcarpetas</b>: una fila por subcarpeta explicada (ruta, descripción y retención propia).</li>
               <li><b>Campos</b>: qué campos tiene la ficha y de qué tipo. Puede agregar campos aquí (y la columna con el mismo nombre en la hoja Carpetas).</li>
               <li><b>Historial</b>: cada cambio hecho desde la app.</li>
             </ul>
@@ -171,9 +178,53 @@ onMounted(() => caja.value?.focus())
             <ul>
               <li><b>Rueda</b>: acercar / alejar. <b>Arrastrar el fondo</b>: mover la vista. <b>Arrastrar un punto</b>: reacomodarlo.</li>
               <li><b>Clic</b>: lo selecciona (y lo abre en la barra lateral). <b>Doble clic</b> en carpeta: dibuja desde ella; en archivo: lo abre.</li>
-              <li><b>Niveles</b>: cuántos niveles de subcarpetas dibujar. <b>Resaltar</b>: ilumina los que coinciden con el texto.</li>
+              <li><b>Niveles</b>: cuántos niveles de subcarpetas dibujar.</li>
+              <li><b>Resaltar y buscar</b>: ilumina lo que se parece al texto (misma regla que el buscador) y abre una lista; elija uno (o <kbd>↓</kbd> + <kbd>Enter</kbd>) y el gráfico hace zoom hasta él. Con “Buscar también en las subcarpetas no dibujadas” encuentra archivos más profundos: al elegirlos, se dibuja su carpeta y se enfocan.</li>
+              <li>Los colores de las carpetas son los de su raíz.</li>
             </ul>
             <p class="nota">Para no saturar, se dibujan como máximo 2.500 elementos. Si la carpeta es muy grande, baje los niveles o dibuje desde una subcarpeta.</p>
+          </template>
+
+          <template v-else-if="tema === 'buscar'">
+            <h3>Buscar</h3>
+            <p>El buscador de la barra lateral, el de la vista gráfica y los filtros de Duplicados y Vencidos usan la misma regla:</p>
+            <ul>
+              <li>Muestra lo que tenga <b>al menos una</b> de las palabras escritas.</li>
+              <li>El <b>orden no importa</b>: “informe mantenimiento” encuentra “Mantenimiento – Informe 2024”.</li>
+              <li>No importan tildes ni mayúsculas, y encuentra palabras <b>parecidas</b>: que empiezan igual (“mant” → “mantenimiento”), que están dentro de otra, o con una o dos letras cambiadas (“mantenimeinto”).</li>
+              <li>Primero aparecen los que tienen <b>todas</b> las palabras, luego los más parecidos.</li>
+            </ul>
+            <p class="nota">Busca en todas las carpetas raíz abiertas. Se muestran los 300 resultados más parecidos.</p>
+          </template>
+
+          <template v-else-if="tema === 'duplicados'">
+            <h3>Archivos duplicados</h3>
+            <p>Encuentra archivos con el <b>mismo nombre y el mismo contenido</b> en la carpeta elegida y en todas sus subcarpetas (o en todas las raíces, desde Inicio).</p>
+            <ol class="pasos">
+              <li>Elija la carpeta en la barra lateral (o clic derecho → <b>Buscar duplicados aquí</b>).</li>
+              <li>Pestaña <b>Duplicados</b> → <b>Buscar duplicados</b>.</li>
+              <li>Abra cada grupo: verá cada copia con su ubicación, tamaño, fecha de creación y de modificación. La más antigua se marca.</li>
+              <li>Elimine las copias que sobran (van a la papelera de la app).</li>
+            </ol>
+            <p class="nota">Primero se comparan nombre y tamaño; solo esos archivos se leen completos para confirmar que son idénticos. En red, la primera búsqueda grande puede tardar varios minutos; se puede detener.</p>
+          </template>
+
+          <template v-else-if="tema === 'vencidos'">
+            <h3>Retención y vencidos</h3>
+            <p>La <b>retención</b> es cuánto tiempo deben quedarse los archivos de una carpeta. Un archivo está <b>vencido</b> cuando su fecha de modificación es más antigua que ese tiempo.</p>
+            <h4>Dónde se define</h4>
+            <ul>
+              <li>En la ficha de la carpeta principal: campo <b>Retención de archivos</b> (por ejemplo “2 años”). Aplica a ella y a todas sus subcarpetas.</li>
+              <li>En la sección <b>Subcarpetas</b> de la ficha, una subcarpeta puede tener su propia retención (por ejemplo “6 meses”), que también heredan sus subcarpetas.</li>
+              <li><b>No depurar nunca</b>: esa carpeta (y lo que tiene dentro) no se depura aunque la superior tenga retención.</li>
+            </ul>
+            <h4>Depurar</h4>
+            <ol class="pasos">
+              <li>Elija la carpeta (o Inicio para todas) → pestaña <b>Vencidos</b> → <b>Revisar vencidos</b>.</li>
+              <li>Revise la lista, agrupada por la carpeta que define la regla.</li>
+              <li>Marque los archivos (o grupos completos) → <b>Mover a la papelera</b> → confirme.</li>
+            </ol>
+            <p class="nota">Nada se borra solo: siempre se revisa y se confirma. Lo depurado queda en <code>_papelera_organizador\&lt;fecha&gt; depuracion\…</code> con su ruta original, y cada archivo queda anotado en el Historial del Excel.</p>
           </template>
 
           <!-- 8 -->
@@ -187,9 +238,11 @@ onMounted(() => caja.value?.focus())
                 <tr><td>“No respondió a tiempo”</td><td>La unidad de red está lenta o desconectada. Ábrala en el Explorador y pulse Recargar.</td></tr>
                 <tr><td>Fichas que apuntan a carpetas que no existen</td><td>Alguien renombró o movió la carpeta por fuera de la app. Corrija la ruta en el Excel o elimine la ficha desde la raíz.</td></tr>
                 <tr><td>Cambié algo desde el Explorador y no se ve</td><td>Pulse <b>Recargar</b> (<kbd>F5</kbd>).</td></tr>
+                <tr><td>“Tiene fichas o explicaciones en el Excel de…”</td><td>Esa carpeta no se puede mover a otra raíz porque sus fichas están en el Excel de la suya. Muévala dentro de la misma raíz.</td></tr>
+                <tr><td>“Esa carpeta está dentro de… que ya está abierta”</td><td>No se puede abrir una raíz dentro de otra. Use la que ya está abierta.</td></tr>
               </tbody>
             </table>
-            <p class="nota">¿Se eliminó algo por error? Está en <code>_papelera_organizador</code>, dentro de la raíz, ordenado por fecha y con su ruta original.</p>
+            <p class="nota">¿Se eliminó o depuró algo por error? Está en <code>_papelera_organizador</code>, dentro de su carpeta raíz, ordenado por fecha y con su ruta original.</p>
           </template>
 
           <footer class="navegar">

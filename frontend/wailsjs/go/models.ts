@@ -1,5 +1,37 @@
 export namespace main {
 	
+	export class ArchivoVencido {
+	    ruta: string;
+	    nombre: string;
+	    ext: string;
+	    carpeta: string;
+	    tamano: number;
+	    modificado: string;
+	    creado: string;
+	    retencion: string;
+	    origen: string;
+	    vencio: string;
+	    dias: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new ArchivoVencido(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.ruta = source["ruta"];
+	        this.nombre = source["nombre"];
+	        this.ext = source["ext"];
+	        this.carpeta = source["carpeta"];
+	        this.tamano = source["tamano"];
+	        this.modificado = source["modificado"];
+	        this.creado = source["creado"];
+	        this.retencion = source["retencion"];
+	        this.origen = source["origen"];
+	        this.vencio = source["vencio"];
+	        this.dias = source["dias"];
+	    }
+	}
 	export class Campo {
 	    nombre: string;
 	    grupo: string;
@@ -20,10 +52,33 @@ export namespace main {
 	        this.orden = source["orden"];
 	    }
 	}
+	export class CopiaDup {
+	    ruta: string;
+	    carpeta: string;
+	    ubicacion: string;
+	    tamano: number;
+	    creado: string;
+	    modificado: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new CopiaDup(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.ruta = source["ruta"];
+	        this.carpeta = source["carpeta"];
+	        this.ubicacion = source["ubicacion"];
+	        this.tamano = source["tamano"];
+	        this.creado = source["creado"];
+	        this.modificado = source["modificado"];
+	    }
+	}
 	export class DescripcionSub {
 	    ruta: string;
 	    descripcion: string;
 	    actualizado: string;
+	    retencion: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new DescripcionSub(source);
@@ -34,6 +89,7 @@ export namespace main {
 	        this.ruta = source["ruta"];
 	        this.descripcion = source["descripcion"];
 	        this.actualizado = source["actualizado"];
+	        this.retencion = source["retencion"];
 	    }
 	}
 	export class Entrada {
@@ -63,6 +119,10 @@ export namespace main {
 	export class DetalleArchivo {
 	    archivo: Entrada;
 	    creado: string;
+	    ubicacion: string;
+	    retencion: string;
+	    retencionDe: string;
+	    vence: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new DetalleArchivo(source);
@@ -72,6 +132,10 @@ export namespace main {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.archivo = this.convertValues(source["archivo"], Entrada);
 	        this.creado = source["creado"];
+	        this.ubicacion = source["ubicacion"];
+	        this.retencion = source["retencion"];
+	        this.retencionDe = source["retencionDe"];
+	        this.vence = source["vence"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -97,6 +161,8 @@ export namespace main {
 	    nombre: string;
 	    nivel: number;
 	    descripcion: string;
+	    retencion: string;
+	    heredada: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new SubcarpetaFicha(source);
@@ -108,6 +174,8 @@ export namespace main {
 	        this.nombre = source["nombre"];
 	        this.nivel = source["nivel"];
 	        this.descripcion = source["descripcion"];
+	        this.retencion = source["retencion"];
+	        this.heredada = source["heredada"];
 	    }
 	}
 	export class Registro {
@@ -135,12 +203,16 @@ export namespace main {
 	    archivos: number;
 	    tamanoTotal: number;
 	    registros: Registro[];
+	    esInicio: boolean;
+	    esRaiz: boolean;
 	    esPrincipal: boolean;
 	    arbol: SubcarpetaFicha[];
 	    arbolCortado: boolean;
 	    principal: string;
 	    principalFicha: boolean;
 	    descripcion: string;
+	    retencion: string;
+	    retencionDe: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new DetalleCarpeta(source);
@@ -154,12 +226,16 @@ export namespace main {
 	        this.archivos = source["archivos"];
 	        this.tamanoTotal = source["tamanoTotal"];
 	        this.registros = this.convertValues(source["registros"], Registro);
+	        this.esInicio = source["esInicio"];
+	        this.esRaiz = source["esRaiz"];
 	        this.esPrincipal = source["esPrincipal"];
 	        this.arbol = this.convertValues(source["arbol"], SubcarpetaFicha);
 	        this.arbolCortado = source["arbolCortado"];
 	        this.principal = source["principal"];
 	        this.principalFicha = source["principalFicha"];
 	        this.descripcion = source["descripcion"];
+	        this.retencion = source["retencion"];
+	        this.retencionDe = source["retencionDe"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -195,10 +271,13 @@ export namespace main {
 	    }
 	}
 	
-	export class Estado {
-	    raiz: string;
-	    nombreRaiz: string;
-	    recientes: string[];
+	export class EstadoRaiz {
+	    id: string;
+	    ruta: string;
+	    nombre: string;
+	    color: string;
+	    accesible: boolean;
+	    error: string;
 	    base: string;
 	    baseExiste: boolean;
 	    baseError: string;
@@ -207,19 +286,19 @@ export namespace main {
 	    sinCarpeta: Registro[];
 	    noPrincipal: Registro[];
 	    papeleraHay: boolean;
-	    nombreExcel: string;
-	    nombrePapelera: string;
-	    aviso: string;
 	
 	    static createFrom(source: any = {}) {
-	        return new Estado(source);
+	        return new EstadoRaiz(source);
 	    }
 	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.raiz = source["raiz"];
-	        this.nombreRaiz = source["nombreRaiz"];
-	        this.recientes = source["recientes"];
+	        this.id = source["id"];
+	        this.ruta = source["ruta"];
+	        this.nombre = source["nombre"];
+	        this.color = source["color"];
+	        this.accesible = source["accesible"];
+	        this.error = source["error"];
 	        this.base = source["base"];
 	        this.baseExiste = source["baseExiste"];
 	        this.baseError = source["baseError"];
@@ -228,9 +307,6 @@ export namespace main {
 	        this.sinCarpeta = this.convertValues(source["sinCarpeta"], Registro);
 	        this.noPrincipal = this.convertValues(source["noPrincipal"], Registro);
 	        this.papeleraHay = source["papeleraHay"];
-	        this.nombreExcel = source["nombreExcel"];
-	        this.nombrePapelera = source["nombrePapelera"];
-	        this.aviso = source["aviso"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -251,6 +327,47 @@ export namespace main {
 		    return a;
 		}
 	}
+	export class Estado {
+	    raices: EstadoRaiz[];
+	    recientes: string[];
+	    paleta: string[];
+	    nombreExcel: string;
+	    nombrePapelera: string;
+	    avisos: string[];
+	
+	    static createFrom(source: any = {}) {
+	        return new Estado(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.raices = this.convertValues(source["raices"], EstadoRaiz);
+	        this.recientes = source["recientes"];
+	        this.paleta = source["paleta"];
+	        this.nombreExcel = source["nombreExcel"];
+	        this.nombrePapelera = source["nombrePapelera"];
+	        this.avisos = source["avisos"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	
 	export class NodoGrafo {
 	    id: string;
 	    nombre: string;
@@ -313,10 +430,69 @@ export namespace main {
 		    return a;
 		}
 	}
+	export class GrupoDup {
+	    nombre: string;
+	    ext: string;
+	    tamano: number;
+	    huella: string;
+	    copias: CopiaDup[];
+	    desperdicio: number;
 	
+	    static createFrom(source: any = {}) {
+	        return new GrupoDup(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.nombre = source["nombre"];
+	        this.ext = source["ext"];
+	        this.tamano = source["tamano"];
+	        this.huella = source["huella"];
+	        this.copias = this.convertValues(source["copias"], CopiaDup);
+	        this.desperdicio = source["desperdicio"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	
+	export class Raiz {
+	    id: string;
+	    ruta: string;
+	    nombre: string;
+	    color: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new Raiz(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.ruta = source["ruta"];
+	        this.nombre = source["nombre"];
+	        this.color = source["color"];
+	    }
+	}
 	
 	export class ResultadoBusqueda {
 	    entradas: Entrada[];
+	    total: number;
 	    cortada: boolean;
 	
 	    static createFrom(source: any = {}) {
@@ -326,7 +502,110 @@ export namespace main {
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.entradas = this.convertValues(source["entradas"], Entrada);
+	        this.total = source["total"];
 	        this.cortada = source["cortada"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class ResultadoDepurar {
+	    movidas: string[];
+	    movidos: number;
+	    tamano: number;
+	    errores: string[];
+	
+	    static createFrom(source: any = {}) {
+	        return new ResultadoDepurar(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.movidas = source["movidas"];
+	        this.movidos = source["movidos"];
+	        this.tamano = source["tamano"];
+	        this.errores = source["errores"];
+	    }
+	}
+	export class ResultadoDuplicados {
+	    grupos: GrupoDup[];
+	    revisados: number;
+	    comparados: number;
+	    desperdicio: number;
+	    cancelado: boolean;
+	    errores: number;
+	    segundos: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new ResultadoDuplicados(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.grupos = this.convertValues(source["grupos"], GrupoDup);
+	        this.revisados = source["revisados"];
+	        this.comparados = source["comparados"];
+	        this.desperdicio = source["desperdicio"];
+	        this.cancelado = source["cancelado"];
+	        this.errores = source["errores"];
+	        this.segundos = source["segundos"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class ResultadoVencidos {
+	    archivos: ArchivoVencido[];
+	    revisados: number;
+	    reglas: number;
+	    sinExcel: string[];
+	    cortado: boolean;
+	    cancelado: boolean;
+	    segundos: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new ResultadoVencidos(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.archivos = this.convertValues(source["archivos"], ArchivoVencido);
+	        this.revisados = source["revisados"];
+	        this.reglas = source["reglas"];
+	        this.sinExcel = source["sinExcel"];
+	        this.cortado = source["cortado"];
+	        this.cancelado = source["cancelado"];
+	        this.segundos = source["segundos"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -365,6 +644,31 @@ export namespace main {
 	        this.fichas = source["fichas"];
 	        this.descripciones = source["descripciones"];
 	        this.cortado = source["cortado"];
+	    }
+	}
+	
+	export class TamanoTotal {
+	    ruta: string;
+	    tamano: number;
+	    archivos: number;
+	    carpetas: number;
+	    cortado: boolean;
+	    cancelado: boolean;
+	    segundos: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new TamanoTotal(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.ruta = source["ruta"];
+	        this.tamano = source["tamano"];
+	        this.archivos = source["archivos"];
+	        this.carpetas = source["carpetas"];
+	        this.cortado = source["cortado"];
+	        this.cancelado = source["cancelado"];
+	        this.segundos = source["segundos"];
 	    }
 	}
 

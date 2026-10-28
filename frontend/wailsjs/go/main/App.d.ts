@@ -4,29 +4,41 @@ import {main} from '../models';
 
 export function AbrirArchivo(arg1:string):Promise<void>;
 
-export function AbrirBase():Promise<void>;
+export function AbrirBase(arg1:string):Promise<void>;
 
-export function AbrirPapelera():Promise<void>;
+export function AbrirPapelera(arg1:string):Promise<void>;
 
 export function AgregarArchivos(arg1:string):Promise<Array<string>>;
 
+export function AgregarRaiz():Promise<main.Raiz>;
+
+export function AgregarRaizRuta(arg1:string):Promise<main.Raiz>;
+
 export function Archivo(arg1:string):Promise<main.DetalleArchivo>;
 
-export function Buscar(arg1:string):Promise<main.ResultadoBusqueda>;
+export function Buscar(arg1:string,arg2:string):Promise<main.ResultadoBusqueda>;
+
+export function CancelarDuplicados():Promise<void>;
+
+export function CancelarVencidos():Promise<void>;
 
 export function Carpeta(arg1:string):Promise<main.DetalleCarpeta>;
 
+export function ColorRaiz(arg1:string,arg2:string):Promise<void>;
+
 export function ContarEliminar(arg1:string):Promise<main.ResumenEliminar>;
 
-export function CrearBase():Promise<void>;
+export function CrearBase(arg1:string):Promise<void>;
 
 export function CrearCarpeta(arg1:string,arg2:string):Promise<string>;
 
-export function ElegirRaiz():Promise<string>;
+export function Depurar(arg1:Array<string>):Promise<main.ResultadoDepurar>;
+
+export function Duplicados(arg1:string):Promise<main.ResultadoDuplicados>;
 
 export function Eliminar(arg1:string):Promise<string>;
 
-export function EliminarRegistro(arg1:number):Promise<void>;
+export function EliminarRegistro(arg1:string,arg2:number):Promise<void>;
 
 export function Estado():Promise<main.Estado>;
 
@@ -40,6 +52,10 @@ export function MostrarEnCarpeta(arg1:string):Promise<void>;
 
 export function Mover(arg1:string,arg2:string):Promise<string>;
 
+export function QuitarRaiz(arg1:string):Promise<void>;
+
 export function Renombrar(arg1:string,arg2:string):Promise<string>;
 
-export function UsarRaiz(arg1:string):Promise<void>;
+export function TamanoCarpeta(arg1:string):Promise<main.TamanoTotal>;
+
+export function Vencidos(arg1:string):Promise<main.ResultadoVencidos>;

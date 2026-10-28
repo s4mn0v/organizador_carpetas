@@ -26,6 +26,10 @@ defineProps({nombre: {type: String, required: true}})
     <template v-else-if="nombre === 'casa'"><path d="M3 11 12 4l9 7"/><path d="M5 10v10h14V10"/></template>
     <template v-else-if="nombre === 'centrar'"><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></template>
     <template v-else-if="nombre === 'papelera'"><path d="M4 7h16"/><path d="M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12"/><path d="M9 7V4h6v3"/><path d="M10 12l4 4M14 12l-4 4"/></template>
+    <template v-else-if="nombre === 'reloj'"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></template>
+    <template v-else-if="nombre === 'copias'"><rect x="8" y="8" width="12" height="13" rx="2"/><path d="M16 8V5a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h2"/></template>
+    <template v-else-if="nombre === 'paleta'"><path d="M12 3a9 9 0 1 0 0 18c1.1 0 1.6-.8 1.6-1.6 0-.5-.2-.9-.5-1.2a1.6 1.6 0 0 1 1.2-2.7H16a5 5 0 0 0 5-5c0-4.1-4-7.5-9-7.5z"/><circle cx="7.5" cy="11" r="1"/><circle cx="10" cy="7" r="1"/><circle cx="15" cy="7.5" r="1"/></template>
+    <template v-else-if="nombre === 'quitar'"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 13h6"/></template>
     <template v-else-if="nombre === 'archivo'"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/></template>
   </svg>
 </template>

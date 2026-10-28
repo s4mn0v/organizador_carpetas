@@ -6,52 +6,76 @@ export function AbrirArchivo(arg1) {
   return window['go']['main']['App']['AbrirArchivo'](arg1);
 }
 
-export function AbrirBase() {
-  return window['go']['main']['App']['AbrirBase']();
+export function AbrirBase(arg1) {
+  return window['go']['main']['App']['AbrirBase'](arg1);
 }
 
-export function AbrirPapelera() {
-  return window['go']['main']['App']['AbrirPapelera']();
+export function AbrirPapelera(arg1) {
+  return window['go']['main']['App']['AbrirPapelera'](arg1);
 }
 
 export function AgregarArchivos(arg1) {
   return window['go']['main']['App']['AgregarArchivos'](arg1);
 }
 
+export function AgregarRaiz() {
+  return window['go']['main']['App']['AgregarRaiz']();
+}
+
+export function AgregarRaizRuta(arg1) {
+  return window['go']['main']['App']['AgregarRaizRuta'](arg1);
+}
+
 export function Archivo(arg1) {
   return window['go']['main']['App']['Archivo'](arg1);
 }
 
-export function Buscar(arg1) {
-  return window['go']['main']['App']['Buscar'](arg1);
+export function Buscar(arg1, arg2) {
+  return window['go']['main']['App']['Buscar'](arg1, arg2);
+}
+
+export function CancelarDuplicados() {
+  return window['go']['main']['App']['CancelarDuplicados']();
+}
+
+export function CancelarVencidos() {
+  return window['go']['main']['App']['CancelarVencidos']();
 }
 
 export function Carpeta(arg1) {
   return window['go']['main']['App']['Carpeta'](arg1);
 }
 
+export function ColorRaiz(arg1, arg2) {
+  return window['go']['main']['App']['ColorRaiz'](arg1, arg2);
+}
+
 export function ContarEliminar(arg1) {
   return window['go']['main']['App']['ContarEliminar'](arg1);
 }
 
-export function CrearBase() {
-  return window['go']['main']['App']['CrearBase']();
+export function CrearBase(arg1) {
+  return window['go']['main']['App']['CrearBase'](arg1);
 }
 
 export function CrearCarpeta(arg1, arg2) {
   return window['go']['main']['App']['CrearCarpeta'](arg1, arg2);
 }
 
-export function ElegirRaiz() {
-  return window['go']['main']['App']['ElegirRaiz']();
+export function Depurar(arg1) {
+  return window['go']['main']['App']['Depurar'](arg1);
+}
+
+export function Duplicados(arg1) {
+  return window['go']['main']['App']['Duplicados'](arg1);
 }
 
 export function Eliminar(arg1) {
   return window['go']['main']['App']['Eliminar'](arg1);
 }
 
-export function EliminarRegistro(arg1) {
-  return window['go']['main']['App']['EliminarRegistro'](arg1);
+export function EliminarRegistro(arg1, arg2) {
+  return window['go']['main']['App']['EliminarRegistro'](arg1, arg2);
 }
 
 export function Estado() {
@@ -78,10 +102,18 @@ export function Mover(arg1, arg2) {
   return window['go']['main']['App']['Mover'](arg1, arg2);
 }
 
+export function QuitarRaiz(arg1) {
+  return window['go']['main']['App']['QuitarRaiz'](arg1);
+}
+
 export function Renombrar(arg1, arg2) {
   return window['go']['main']['App']['Renombrar'](arg1, arg2);
 }
 
-export function UsarRaiz(arg1) {
-  return window['go']['main']['App']['UsarRaiz'](arg1);
+export function TamanoCarpeta(arg1) {
+  return window['go']['main']['App']['TamanoCarpeta'](arg1);
+}
+
+export function Vencidos(arg1) {
+  return window['go']['main']['App']['Vencidos'](arg1);
 }
