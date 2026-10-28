@@ -11,10 +11,10 @@ import (
 	"time"
 )
 
-// Entrada es una carpeta o un archivo dentro de la raíz.
+// Entrada es una carpeta o un archivo (ruta virtual: "<raíz>/<ruta>").
 type Entrada struct {
 	Nombre     string `json:"nombre"`
-	Ruta       string `json:"ruta"` // relativa a la raíz, con "/"
+	Ruta       string `json:"ruta"`
 	EsCarpeta  bool   `json:"esCarpeta"`
 	Ext        string `json:"ext"` // ".pdf", ".xlsx"… (minúsculas)
 	Tamano     int64  `json:"tamano"`
@@ -30,6 +30,8 @@ type DetalleCarpeta struct {
 	Archivos    int         `json:"archivos"`
 	TamanoTotal int64       `json:"tamanoTotal"` // solo archivos directos
 	Registros   []*Registro `json:"registros"`
+	EsInicio    bool        `json:"esInicio"` // "" = todas las raíces
+	EsRaiz      bool        `json:"esRaiz"`
 
 	// Fichas: solo las carpetas principales (directo en la raíz) tienen ficha.
 	EsPrincipal    bool              `json:"esPrincipal"`
@@ -38,6 +40,8 @@ type DetalleCarpeta struct {
 	Principal      string            `json:"principal"`    // subcarpeta: su carpeta principal
 	PrincipalFicha bool              `json:"principalFicha"`
 	Descripcion    string            `json:"descripcion"` // subcarpeta: su explicación en la ficha
+	Retencion      string            `json:"retencion"`   // tiempo que deben quedarse los archivos aquí ("" = sin regla)
+	RetencionDe    string            `json:"retencionDe"` // carpeta donde se definió esa regla
 }
 
 // SubcarpetaFicha es una subcarpeta dentro de la ficha de su carpeta principal.
@@ -46,12 +50,18 @@ type SubcarpetaFicha struct {
 	Nombre      string `json:"nombre"`
 	Nivel       int    `json:"nivel"` // 1 = hija directa de la principal
 	Descripcion string `json:"descripcion"`
+	Retencion   string `json:"retencion"` // propia ("" = hereda)
+	Heredada    string `json:"heredada"`  // la que aplica si no tiene propia
 }
 
 // DetalleArchivo: lo que se muestra al elegir un archivo.
 type DetalleArchivo struct {
-	Archivo Entrada `json:"archivo"`
-	Creado  string  `json:"creado"`
+	Archivo     Entrada `json:"archivo"`
+	Creado      string  `json:"creado"`
+	Ubicacion   string  `json:"ubicacion"` // ruta completa en Windows
+	Retencion   string  `json:"retencion"`
+	RetencionDe string  `json:"retencionDe"`
+	Vence       string  `json:"vence"` // fecha en que se pasa del tiempo de retención (RFC3339)
 }
 
 // omitir: lo que no se muestra (temporales de Office, sistema, la papelera de la app y el Excel de fichas).
@@ -75,7 +85,8 @@ func entradaDe(rel string, info os.FileInfo) Entrada {
 	return e
 }
 
-// leerDir lista una carpeta: primero carpetas, luego archivos, en orden alfabético.
+// leerDir lista una carpeta de una raíz: primero carpetas, luego archivos, en orden alfabético.
+// Las rutas que devuelve son relativas a la raíz.
 func leerDir(raiz, rel string, conFicha map[string]bool) ([]Entrada, error) {
 	abs, ok := rutaSegura(raiz, rel)
 	if !ok {
@@ -113,21 +124,53 @@ func leerDir(raiz, rel string, conFicha map[string]bool) ([]Entrada, error) {
 	return out, nil
 }
 
-// Listar devuelve el contenido de una carpeta (para el árbol, que carga por demanda).
-func (a *App) Listar(rel string) ([]Entrada, error) {
-	raiz := a.raizActual()
-	if raiz == "" {
-		return nil, errors.New("elija la carpeta raíz")
+// virtuales pasa las rutas de las entradas a rutas virtuales de la raíz.
+func virtuales(ri *raizInfo, ents []Entrada) []Entrada {
+	for i := range ents {
+		ents[i].Ruta = unir(ri.ID, ents[i].Ruta)
 	}
-	return leerDir(raiz, rel, a.rutasConFicha())
+	return ents
+}
+
+// entradasRaices: las raíces abiertas como carpetas (el contenido del Inicio).
+func (a *App) entradasRaices() []Entrada {
+	out := []Entrada{}
+	for _, ri := range a.lista() {
+		e := Entrada{Nombre: ri.Nombre, Ruta: ri.ID, EsCarpeta: true}
+		if info, err := os.Stat(ri.Ruta); err == nil {
+			e.Modificado = info.ModTime().Format(time.RFC3339)
+		}
+		out = append(out, e)
+	}
+	return out
+}
+
+// Listar devuelve el contenido de una carpeta (para el árbol, que carga por demanda). "" = las raíces.
+func (a *App) Listar(v string) ([]Entrada, error) {
+	if v == "" {
+		return a.entradasRaices(), nil
+	}
+	ri, rel, err := a.resolver(v)
+	if err != nil {
+		return nil, err
+	}
+	ents, err := leerDir(ri.Ruta, rel, a.rutasConFicha(ri))
+	if err != nil {
+		return nil, err
+	}
+	return virtuales(ri, ents), nil
 }
 
 // Carpeta devuelve el detalle de una carpeta con sus fichas.
-func (a *App) Carpeta(rel string) (*DetalleCarpeta, error) {
-	raiz := a.raizActual()
-	abs, ok := rutaSegura(raiz, rel)
-	if raiz == "" || !ok {
-		return nil, errors.New("ruta no válida")
+func (a *App) Carpeta(v string) (*DetalleCarpeta, error) {
+	if v == "" {
+		ents := a.entradasRaices()
+		return &DetalleCarpeta{Carpeta: Entrada{Nombre: "Inicio", EsCarpeta: true}, Entradas: ents,
+			Subcarpetas: len(ents), Registros: []*Registro{}, Arbol: []SubcarpetaFicha{}, EsInicio: true}, nil
+	}
+	ri, rel, abs, err := a.absoluta(v)
+	if err != nil {
+		return nil, err
 	}
 	info, err := os.Stat(abs)
 	if err != nil {
@@ -136,15 +179,14 @@ func (a *App) Carpeta(rel string) (*DetalleCarpeta, error) {
 	if !info.IsDir() {
 		return nil, errors.New("no es una carpeta")
 	}
-	conFicha := a.rutasConFicha()
-	ents, err := leerDir(raiz, rel, conFicha)
+	conFicha := a.rutasConFicha(ri)
+	ents, err := leerDir(ri.Ruta, rel, conFicha)
 	if err != nil {
 		return nil, err
 	}
-	rel, _ = limpiarRel(rel)
-	d := &DetalleCarpeta{Carpeta: entradaDe(rel, info), Entradas: ents, Registros: []*Registro{}}
+	d := &DetalleCarpeta{Carpeta: entradaDe(unir(ri.ID, rel), info), Registros: []*Registro{}, EsRaiz: rel == ""}
 	if rel == "" {
-		d.Carpeta.Nombre = filepath.Base(raiz)
+		d.Carpeta.Nombre = ri.Nombre
 	}
 	d.Carpeta.Ficha = conFicha[strings.ToLower(rel)]
 	for _, e := range ents {
@@ -155,22 +197,30 @@ func (a *App) Carpeta(rel string) (*DetalleCarpeta, error) {
 			d.TamanoTotal += e.Tamano
 		}
 	}
+	d.Entradas = virtuales(ri, ents)
 	d.Arbol = []SubcarpetaFicha{}
-	b, _ := a.base()
+	b, _ := a.base(ri)
+	rg := reglasDe(b)
+	if rel != "" {
+		d.Retencion, d.RetencionDe = rg.efectiva(rel)
+		if d.RetencionDe != "" {
+			d.RetencionDe = unir(ri.ID, d.RetencionDe)
+		}
+	}
 	switch {
 	case esPrincipal(rel):
 		d.EsPrincipal = true
 		if b != nil {
 			for _, r := range b.registros {
 				if strings.EqualFold(r.Ruta, rel) {
-					d.Registros = append(d.Registros, r)
+					d.Registros = append(d.Registros, regV(ri, r))
 				}
 			}
 		}
-		d.Arbol, d.ArbolCortado = arbolSubcarpetas(raiz, rel, b)
+		d.Arbol, d.ArbolCortado = arbolSubcarpetas(ri, rel, b, rg)
 	case rel != "":
-		d.Principal = principalDe(rel)
-		d.PrincipalFicha = conFicha[strings.ToLower(d.Principal)]
+		d.Principal = unir(ri.ID, principalDe(rel))
+		d.PrincipalFicha = conFicha[strings.ToLower(principalDe(rel))]
 		if b != nil {
 			d.Descripcion = b.descripcionDe(rel)
 		}
@@ -179,8 +229,8 @@ func (a *App) Carpeta(rel string) (*DetalleCarpeta, error) {
 }
 
 // arbolSubcarpetas lista todas las subcarpetas de una carpeta principal (en orden de árbol),
-// con su descripción. Máximo 600 o 20 segundos.
-func arbolSubcarpetas(raiz, rel string, b *baseDatos) ([]SubcarpetaFicha, bool) {
+// con su descripción y retención. Máximo 600 o 20 segundos.
+func arbolSubcarpetas(ri *raizInfo, rel string, b *baseDatos, rg reglas) ([]SubcarpetaFicha, bool) {
 	out := []SubcarpetaFicha{}
 	limite := time.Now().Add(20 * time.Second)
 	cortado := false
@@ -189,7 +239,7 @@ func arbolSubcarpetas(raiz, rel string, b *baseDatos) ([]SubcarpetaFicha, bool) 
 		if cortado || nivel > 10 {
 			return
 		}
-		ents, err := leerDir(raiz, dir, nil)
+		ents, err := leerDir(ri.Ruta, dir, nil)
 		if err != nil {
 			return
 		}
@@ -201,10 +251,12 @@ func arbolSubcarpetas(raiz, rel string, b *baseDatos) ([]SubcarpetaFicha, bool) 
 				cortado = true
 				return
 			}
-			s := SubcarpetaFicha{Ruta: e.Ruta, Nombre: e.Nombre, Nivel: nivel}
+			s := SubcarpetaFicha{Ruta: unir(ri.ID, e.Ruta), Nombre: e.Nombre, Nivel: nivel}
 			if b != nil {
 				s.Descripcion = b.descripcionDe(e.Ruta)
+				s.Retencion = rg.subs[strings.ToLower(e.Ruta)]
 			}
+			s.Heredada, _ = rg.efectiva(dir)
 			out = append(out, s)
 			recorrer(e.Ruta, nivel+1)
 		}
@@ -214,79 +266,135 @@ func arbolSubcarpetas(raiz, rel string, b *baseDatos) ([]SubcarpetaFicha, bool) 
 }
 
 // Archivo devuelve los datos de un archivo.
-func (a *App) Archivo(rel string) (*DetalleArchivo, error) {
-	raiz := a.raizActual()
-	abs, ok := rutaSegura(raiz, rel)
-	if raiz == "" || !ok {
-		return nil, errors.New("ruta no válida")
+func (a *App) Archivo(v string) (*DetalleArchivo, error) {
+	ri, rel, abs, err := a.absoluta(v)
+	if err != nil {
+		return nil, err
 	}
 	info, err := os.Stat(abs)
 	if err != nil {
 		return nil, fmt.Errorf("el archivo ya no existe: %w", err)
 	}
-	rel, _ = limpiarRel(rel)
-	return &DetalleArchivo{Archivo: entradaDe(rel, info), Creado: fechaCreacion(info)}, nil
-}
-
-// ---------------- Búsqueda ----------------
-
-// ResultadoBusqueda: coincidencias por nombre (carpetas y archivos).
-type ResultadoBusqueda struct {
-	Entradas []Entrada `json:"entradas"`
-	Cortada  bool      `json:"cortada"` // se llegó al máximo o al tiempo límite
-}
-
-// Buscar recorre la raíz buscando el texto en los nombres (sin tildes ni mayúsculas).
-func (a *App) Buscar(texto string) (*ResultadoBusqueda, error) {
-	raiz := a.raizActual()
-	q := strings.ToLower(sinTildes(strings.TrimSpace(texto)))
-	res := &ResultadoBusqueda{Entradas: []Entrada{}}
-	if raiz == "" || len([]rune(q)) < 2 {
-		return res, nil
+	d := &DetalleArchivo{Archivo: entradaDe(unir(ri.ID, rel), info), Creado: fechaCreacion(info), Ubicacion: abs}
+	if b, _ := a.base(ri); b != nil {
+		rg := reglasDe(b)
+		d.Retencion, d.RetencionDe = rg.efectiva(padreDe(rel))
+		if d.RetencionDe != "" {
+			d.RetencionDe = unir(ri.ID, d.RetencionDe)
+		}
+		if vence, ok := venceEl(d.Retencion, info.ModTime()); ok {
+			d.Vence = vence.Format(time.RFC3339)
+		}
 	}
-	const maximo = 300
-	limite := time.Now().Add(25 * time.Second)
-	conFicha := a.rutasConFicha()
-	errFin := errors.New("fin")
-	err := filepath.WalkDir(raiz, func(p string, d os.DirEntry, err error) error {
+	return d, nil
+}
+
+// ---------------- Tamaño total (carpeta y todas sus subcarpetas) ----------------
+
+// TamanoTotal: suma de todo lo que hay dentro de una carpeta, a cualquier profundidad.
+type TamanoTotal struct {
+	Ruta      string  `json:"ruta"`
+	Tamano    int64   `json:"tamano"`
+	Archivos  int     `json:"archivos"`
+	Carpetas  int     `json:"carpetas"`
+	Cortado   bool    `json:"cortado"`   // se pasó el tiempo límite: es "al menos"
+	Cancelado bool    `json:"cancelado"` // el usuario eligió otra carpeta antes de terminar
+	Segundos  float64 `json:"segundos"`
+}
+
+type tamanoGuardado struct {
+	t    TamanoTotal
+	hora time.Time
+}
+
+// TamanoCarpeta recorre la carpeta completa. Si se pide otra antes de terminar, esta se cancela.
+// Los resultados se guardan 3 minutos (se borran al crear, mover o eliminar algo).
+func (a *App) TamanoCarpeta(v string) (*TamanoTotal, error) {
+	a.cacheTamMu.Lock()
+	if g, ok := a.cacheTam[v]; ok && time.Since(g.hora) < 3*time.Minute {
+		a.cacheTamMu.Unlock()
+		t := g.t
+		return &t, nil
+	}
+	a.cacheTamMu.Unlock()
+
+	gen := a.genTamano.Add(1)
+	inicio := time.Now()
+	limite := inicio.Add(90 * time.Second)
+	t := &TamanoTotal{Ruta: v}
+	var dirs []struct{ raiz, abs string }
+	if v == "" {
+		for _, ri := range a.lista() {
+			dirs = append(dirs, struct{ raiz, abs string }{ri.Ruta, ri.Ruta})
+		}
+	} else {
+		ri, _, abs, err := a.absoluta(v)
 		if err != nil {
-			return nil
+			return nil, err
 		}
-		if p == raiz {
-			return nil
-		}
-		rel, _ := filepath.Rel(raiz, p)
-		rel = filepath.ToSlash(rel)
-		if omitir(d.Name(), !strings.Contains(rel, "/")) {
-			if d.IsDir() {
-				return filepath.SkipDir
-			}
-			return nil
-		}
-		if strings.Contains(strings.ToLower(sinTildes(d.Name())), q) {
-			if info, err := d.Info(); err == nil {
-				e := entradaDe(rel, info)
-				e.Ficha = e.EsCarpeta && conFicha[strings.ToLower(rel)]
-				res.Entradas = append(res.Entradas, e)
-			}
-		}
-		if len(res.Entradas) >= maximo || time.Now().After(limite) {
-			res.Cortada = true
-			return errFin
-		}
-		return nil
-	})
-	if err != nil && err != errFin {
-		return nil, err
+		dirs = append(dirs, struct{ raiz, abs string }{ri.Ruta, abs})
 	}
-	return res, nil
+	fin := errors.New("fin")
+	n := 0
+	for _, d := range dirs {
+		err := filepath.WalkDir(d.abs, func(p string, e os.DirEntry, err error) error {
+			if err != nil || p == d.abs {
+				return nil
+			}
+			if n++; n%200 == 0 {
+				if a.genTamano.Load() != gen {
+					t.Cancelado = true
+					return fin
+				}
+				if time.Now().After(limite) {
+					t.Cortado = true
+					return fin
+				}
+			}
+			if omitir(e.Name(), filepath.Dir(p) == d.raiz) {
+				if e.IsDir() {
+					return filepath.SkipDir
+				}
+				return nil
+			}
+			if e.IsDir() {
+				t.Carpetas++
+				return nil
+			}
+			t.Archivos++
+			if info, err := e.Info(); err == nil {
+				t.Tamano += info.Size()
+			}
+			return nil
+		})
+		if err == fin {
+			break
+		}
+	}
+	t.Segundos = time.Since(inicio).Seconds()
+	if !t.Cancelado && !t.Cortado {
+		a.cacheTamMu.Lock()
+		if a.cacheTam == nil {
+			a.cacheTam = map[string]tamanoGuardado{}
+		}
+		a.cacheTam[v] = tamanoGuardado{*t, time.Now()}
+		a.cacheTamMu.Unlock()
+	}
+	return t, nil
+}
+
+// olvidarTamanos borra los tamaños guardados (algo cambió en las carpetas).
+func (a *App) olvidarTamanos() {
+	a.cacheTamMu.Lock()
+	a.cacheTam = nil
+	a.cacheTamMu.Unlock()
 }
 
 // ---------------- Vista gráfica ----------------
 
 // NodoGrafo es un punto del grafo.
 type NodoGrafo struct {
-	ID        string `json:"id"` // ruta relativa ("" = raíz del grafo)
+	ID        string `json:"id"` // ruta virtual ("" = Inicio)
 	Nombre    string `json:"nombre"`
 	EsCarpeta bool   `json:"esCarpeta"`
 	Ext       string `json:"ext"`
@@ -310,11 +418,10 @@ type Grafo struct {
 	Maximo  int           `json:"maximo"`
 }
 
-// Grafo arma el grafo desde una carpeta hasta cierta profundidad (máx. 2500 nodos).
-func (a *App) Grafo(rel string, profundidad int, conArchivos bool) (*Grafo, error) {
-	raiz := a.raizActual()
-	rel, ok := limpiarRel(rel)
-	if raiz == "" || !ok {
+// Grafo arma el grafo desde una carpeta ("" = todas las raíces) hasta cierta profundidad (máx. 2500 nodos).
+func (a *App) Grafo(v string, profundidad int, conArchivos bool) (*Grafo, error) {
+	v, ok := limpiarRel(v)
+	if !ok {
 		return nil, errors.New("ruta no válida")
 	}
 	if profundidad < 1 {
@@ -324,22 +431,54 @@ func (a *App) Grafo(rel string, profundidad int, conArchivos bool) (*Grafo, erro
 		profundidad = 8
 	}
 	const maximo = 2500
-	conFicha := a.rutasConFicha()
 	g := &Grafo{Nodos: []NodoGrafo{}, Enlaces: []EnlaceGrafo{}, Maximo: maximo}
-	nombre := path.Base(rel)
-	if rel == "" {
-		nombre = filepath.Base(raiz)
+	fichas := map[string]map[string]bool{} // id raíz -> rutas con ficha
+	conFicha := func(ri *raizInfo) map[string]bool {
+		if m, ok := fichas[ri.ID]; ok {
+			return m
+		}
+		fichas[ri.ID] = a.rutasConFicha(ri)
+		return fichas[ri.ID]
 	}
-	g.Nodos = append(g.Nodos, NodoGrafo{ID: rel, Nombre: nombre, EsCarpeta: true, Ficha: conFicha[strings.ToLower(rel)]})
-	idx := map[string]int{rel: 0}
+	// hijos de un nodo (ruta virtual)
+	leer := func(dir string) ([]Entrada, error) {
+		if dir == "" {
+			return a.entradasRaices(), nil
+		}
+		ri, rel, err := a.resolver(dir)
+		if err != nil {
+			return nil, err
+		}
+		ents, err := leerDir(ri.Ruta, rel, conFicha(ri))
+		if err != nil {
+			return nil, err
+		}
+		return virtuales(ri, ents), nil
+	}
+
+	nombre := "Inicio"
+	ficha := false
+	if v != "" {
+		ri, rel, err := a.resolver(v)
+		if err != nil {
+			return nil, err
+		}
+		nombre = path.Base(rel)
+		if rel == "" {
+			nombre = ri.Nombre
+		}
+		ficha = conFicha(ri)[strings.ToLower(rel)]
+	}
+	g.Nodos = append(g.Nodos, NodoGrafo{ID: v, Nombre: nombre, EsCarpeta: true, Ficha: ficha})
+	idx := map[string]int{v: 0}
 	limite := time.Now().Add(40 * time.Second)
 
 	// Recorrido por niveles: primero lo más cercano, así si se corta queda lo importante.
-	cola := []string{rel}
+	cola := []string{v}
 	for nivel := 1; nivel <= profundidad && len(cola) > 0 && !g.Cortado; nivel++ {
 		var siguiente []string
 		for _, dir := range cola {
-			ents, err := leerDir(raiz, dir, conFicha)
+			ents, err := leer(dir)
 			if err != nil {
 				continue
 			}

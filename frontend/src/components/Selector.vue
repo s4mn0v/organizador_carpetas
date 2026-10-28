@@ -2,17 +2,18 @@
 import {onMounted, reactive} from 'vue'
 import Icono from './Icono.vue'
 import {Listar} from '../../wailsjs/go/main/App'
-import {mensajeError} from '../util'
+import {mensajeError, raizDeRuta} from '../util'
 
 // Elige una carpeta destino navegando el árbol (solo carpetas, carga por demanda).
+// En el primer nivel están las carpetas raíz abiertas (cada una con su color).
 const props = defineProps({
-  modelValue: {type: String, default: null}, // ruta elegida ('' = raíz, null = ninguna)
-  nombreRaiz: {type: String, default: 'Raíz'},
+  modelValue: {type: String, default: null}, // ruta elegida (null = ninguna)
+  colores: {type: Object, default: () => ({})},
   bloqueada: {type: String, default: ''},    // carpeta que se está moviendo: ni ella ni sus hijas son destino válido
 })
 const emit = defineEmits(['update:modelValue'])
 const hijos = reactive({})
-const abiertos = reactive({'': true})
+const abiertos = reactive({})
 const errores = reactive({})
 
 async function cargar(r) {
@@ -45,7 +46,7 @@ function filas() {
       }
     }
   }
-  recorrer('', 1)
+  recorrer('', 0)
   return out
 }
 onMounted(() => cargar(''))
@@ -53,13 +54,10 @@ onMounted(() => cargar(''))
 
 <template>
   <div class="selector" role="tree">
-    <div class="fila" :class="{activo: modelValue === ''}" @click="elegir('')">
-      <span class="chev"></span><Icono nombre="casa" class="ic"/><span class="nombre">{{ nombreRaiz }}</span>
-    </div>
     <template v-for="f in filas()" :key="f.ruta">
       <div v-if="f.info" class="info" :style="{paddingLeft: 10 + f.nivel * 16 + 'px'}">{{ f.info }}</div>
-      <div v-else class="fila" :class="{activo: modelValue === f.ruta, bloq: bloqueado(f.ruta)}"
-           :style="{paddingLeft: 4 + f.nivel * 16 + 'px'}" :title="bloqueado(f.ruta) ? 'No se puede mover dentro de sí misma' : f.ruta"
+      <div v-else class="fila" :class="{activo: modelValue === f.ruta, bloq: bloqueado(f.ruta), raiz: !f.nivel}"
+           :style="{paddingLeft: 4 + f.nivel * 16 + 'px', '--cf': colores[raizDeRuta(f.ruta)] || 'var(--ambar-oscuro)'}" :title="bloqueado(f.ruta) ? 'No se puede mover dentro de sí misma' : f.ruta"
            @click="elegir(f.ruta)">
         <button class="chev" @click.stop="alternar(f.ruta)"><Icono nombre="chevron" :class="{girado: abiertos[f.ruta]}"/></button>
         <Icono :nombre="abiertos[f.ruta] ? 'carpeta-abierta' : 'carpeta'" class="ic"/>
@@ -79,7 +77,8 @@ onMounted(() => cargar(''))
 .chev { display: grid; place-items: center; width: 18px; height: 18px; flex: none; padding: 0; border: 0; background: none; color: var(--tinta-3); }
 .chev svg { width: 13px; height: 13px; transition: transform .12s; }
 .chev svg.girado { transform: rotate(90deg); }
-.ic { width: 16px; height: 16px; flex: none; color: var(--ambar-oscuro); }
+.ic { width: 16px; height: 16px; flex: none; color: var(--cf); }
+.fila.raiz { font-weight: 600; }
 .nombre { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .info { font-size: var(--t-xs); color: var(--tinta-3); font-style: italic; padding: 2px 0; }
 .err { margin: 6px 10px; color: var(--rojo); font-size: var(--t-xs); }
