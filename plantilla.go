@@ -15,6 +15,9 @@ var camposPorDefecto = []Campo{
 	{Nombre: "Responsable", Grupo: "General", Tipo: "texto"},
 	{Nombre: "Tipo de contenido", Grupo: "General", Tipo: "multilista", // varios valores separados por ";"
 		Opciones: []string{"Indicadores", "Informes", "Formatos", "Procedimientos", "Planos y manuales", "Contratos", "Soportes", "Bases de datos", "Otro"}},
+	// Tiempo que deben quedarse los archivos ("6 meses", "2 años", "No depurar"). Las subcarpetas lo heredan
+	// salvo que tengan uno propio (hoja Subcarpetas, columna Retención).
+	{Nombre: campoRetencion, Grupo: "General", Tipo: "retencion"},
 }
 
 // crearPlantilla crea el Excel de fichas vacío con sus tres hojas.
@@ -50,14 +53,15 @@ func crearPlantilla(ruta string) error {
 	f.SetPanes(hojaFichas, &excelize.Panes{Freeze: true, XSplit: 2, YSplit: 1, TopLeftCell: "C2", ActivePane: "bottomRight"})
 
 	// Hoja Subcarpetas: explicación de cada subcarpeta (se llena desde la ficha de su carpeta principal).
-	f.SetSheetRow(hojaSubcarpetas, "A1", &[]interface{}{"Ruta subcarpeta", "Descripción", "Actualizado"})
-	f.SetCellStyle(hojaSubcarpetas, "A1", "C1", estiloTitulo)
+	f.SetSheetRow(hojaSubcarpetas, "A1", &[]interface{}{"Ruta subcarpeta", "Descripción", "Actualizado", "Retención"})
+	f.SetCellStyle(hojaSubcarpetas, "A1", "D1", estiloTitulo)
 	f.SetColWidth(hojaSubcarpetas, "A", "A", 55)
 	f.SetColWidth(hojaSubcarpetas, "B", "B", 90)
 	f.SetColWidth(hojaSubcarpetas, "C", "C", 17)
+	f.SetColWidth(hojaSubcarpetas, "D", "D", 18)
 
 	// Hoja Campos: cómo se muestra cada columna en la app.
-	f.SetSheetRow(hojaCampos, "A1", &[]interface{}{"Campo", "Grupo", "Tipo (texto, largo, lista, multilista, numero, marca)", "Opciones (separadas por ;)", "Orden"})
+	f.SetSheetRow(hojaCampos, "A1", &[]interface{}{"Campo", "Grupo", "Tipo (texto, largo, lista, multilista, numero, marca, retencion)", "Opciones (separadas por ;)", "Orden"})
 	f.SetCellStyle(hojaCampos, "A1", "E1", estiloTitulo)
 	for i, c := range camposPorDefecto {
 		ops := ""

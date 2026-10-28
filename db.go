@@ -26,7 +26,7 @@ const (
 type Campo struct {
 	Nombre   string   `json:"nombre"`
 	Grupo    string   `json:"grupo"`
-	Tipo     string   `json:"tipo"` // texto | largo | lista | numero | marca
+	Tipo     string   `json:"tipo"` // texto | largo | lista | multilista | numero | marca | retencion
 	Opciones []string `json:"opciones"`
 	Orden    int      `json:"orden"`
 }
@@ -52,6 +52,7 @@ type DescripcionSub struct {
 	Ruta        string `json:"ruta"`
 	Descripcion string `json:"descripcion"`
 	Actualizado string `json:"actualizado"`
+	Retencion   string `json:"retencion"` // tiempo que deben quedarse los archivos ("" = hereda)
 }
 
 const hojaSubcarpetas = "Subcarpetas"
@@ -166,15 +167,33 @@ func cargarBase(ruta string) (*baseDatos, error) {
 	}
 	b.campos = visibles
 
-	// Subcarpetas: ruta | descripción | actualizado (si la hoja no existe, se crea al guardar).
+	// Retención de archivos: si el Excel es anterior a este campo, se muestra igual (la columna se crea al guardar).
+	hay := false
+	maxOrden := 0
+	for i := range b.campos {
+		if normal(b.campos[i].Nombre) == normal(campoRetencion) {
+			b.campos[i].Tipo = "retencion"
+			hay = true
+		}
+		if b.campos[i].Grupo == "General" && b.campos[i].Orden > maxOrden && b.campos[i].Orden < 1000 {
+			maxOrden = b.campos[i].Orden
+		}
+	}
+	if !hay {
+		b.campos = append(b.campos, Campo{Nombre: campoRetencion, Grupo: "General", Tipo: "retencion", Orden: maxOrden + 1})
+		sort.SliceStable(b.campos, func(i, j int) bool { return b.campos[i].Orden < b.campos[j].Orden })
+	}
+
+	// Subcarpetas: ruta | descripción | actualizado | retención (si la hoja no existe, se crea al guardar).
 	if sf, err := f.GetRows(hojaSubcarpetas); err == nil {
 		for _, fila := range sf[min(1, len(sf)):] {
-			if len(fila) < 2 || strings.TrimSpace(fila[0]) == "" || strings.TrimSpace(fila[1]) == "" {
-				continue
+			for len(fila) < 4 {
+				fila = append(fila, "")
 			}
-			d := &DescripcionSub{Ruta: rutaDesdeExcel(fila[0]), Descripcion: strings.TrimSpace(fila[1])}
-			if len(fila) > 2 {
-				d.Actualizado = strings.TrimSpace(fila[2])
+			d := &DescripcionSub{Ruta: rutaDesdeExcel(fila[0]), Descripcion: strings.TrimSpace(fila[1]),
+				Actualizado: strings.TrimSpace(fila[2]), Retencion: strings.TrimSpace(fila[3])}
+			if strings.TrimSpace(fila[0]) == "" || (d.Descripcion == "" && d.Retencion == "") {
+				continue
 			}
 			b.subs = append(b.subs, d)
 		}
@@ -330,6 +349,11 @@ func (b *baseDatos) guardar(r *Registro, subs []DescripcionSub) (*Registro, erro
 			return nil, fmt.Errorf("no se encontró el registro %d en el Excel", r.ID)
 		}
 	}
+	if _, ok := r.Valores[campoRetencion]; ok {
+		if err := b.asegurarColumna(f, campoRetencion, "General", "retencion"); err != nil {
+			return nil, err
+		}
+	}
 	if err := b.escribirFila(f, fila, r); err != nil {
 		return nil, err
 	}
@@ -346,11 +370,12 @@ func (b *baseDatos) guardar(r *Registro, subs []DescripcionSub) (*Registro, erro
 		for _, d := range subs {
 			d.Ruta, _ = limpiarRel(d.Ruta)
 			d.Descripcion = strings.TrimSpace(d.Descripcion)
-			if d.Descripcion == "" || !dentroDe(d.Ruta, r.Ruta) || strings.EqualFold(d.Ruta, r.Ruta) {
+			d.Retencion = strings.TrimSpace(d.Retencion)
+			if (d.Descripcion == "" && d.Retencion == "") || !dentroDe(d.Ruta, r.Ruta) || strings.EqualFold(d.Ruta, r.Ruta) {
 				continue
 			}
 			d.Actualizado = ahora()
-			if a := antes[strings.ToLower(d.Ruta)]; a != nil && a.Descripcion == d.Descripcion {
+			if a := antes[strings.ToLower(d.Ruta)]; a != nil && a.Descripcion == d.Descripcion && a.Retencion == d.Retencion {
 				d.Actualizado = a.Actualizado
 			}
 			nd := d
@@ -372,6 +397,45 @@ func (b *baseDatos) guardar(r *Registro, subs []DescripcionSub) (*Registro, erro
 	return r, nil
 }
 
+// asegurarColumna agrega al Excel una columna de la ficha que falte (hoja Carpetas y hoja Campos).
+func (b *baseDatos) asegurarColumna(f *excelize.File, nombre, grupo, tipo string) error {
+	for _, c := range b.columnas {
+		if normal(c) == normal(nombre) {
+			return nil
+		}
+	}
+	celda, _ := excelize.CoordinatesToCellName(len(b.columnas)+1, 1)
+	if err := f.SetCellValue(hojaFichas, celda, nombre); err != nil {
+		return err
+	}
+	if estilo, err := f.GetCellStyle(hojaFichas, "A1"); err == nil {
+		f.SetCellStyle(hojaFichas, celda, celda, estilo)
+	}
+	letra, _ := excelize.ColumnNumberToName(len(b.columnas) + 1)
+	f.SetColWidth(hojaFichas, letra, letra, 22)
+	b.columnas = append(b.columnas, nombre)
+	if cf, err := f.GetRows(hojaCampos); err == nil {
+		existe := false
+		for _, fila := range cf {
+			if len(fila) > 0 && normal(fila[0]) == normal(nombre) {
+				existe = true
+			}
+		}
+		if !existe {
+			orden := 0
+			for _, c := range b.campos {
+				if c.Nombre == nombre {
+					orden = c.Orden
+				}
+			}
+			celda, _ := excelize.CoordinatesToCellName(1, len(cf)+1)
+			f.SetSheetRow(hojaCampos, celda, &[]interface{}{nombre, grupo, tipo, "", orden})
+		}
+	}
+	historial(f, "Agregar campo", "", "Nuevo campo de la ficha: "+nombre)
+	return nil
+}
+
 // escribirSubs reescribe la hoja "Subcarpetas" con b.subs (ordenadas por ruta).
 func (b *baseDatos) escribirSubs(f *excelize.File) error {
 	if idx, _ := f.GetSheetIndex(hojaSubcarpetas); idx < 0 {
@@ -382,15 +446,16 @@ func (b *baseDatos) escribirSubs(f *excelize.File) error {
 		f.SetColWidth(hojaSubcarpetas, "B", "B", 90)
 		f.SetColWidth(hojaSubcarpetas, "C", "C", 17)
 	}
+	f.SetColWidth(hojaSubcarpetas, "D", "D", 18)
 	filas, _ := f.GetRows(hojaSubcarpetas)
 	for i := len(filas); i >= 2; i-- {
 		f.RemoveRow(hojaSubcarpetas, i)
 	}
-	f.SetSheetRow(hojaSubcarpetas, "A1", &[]interface{}{"Ruta subcarpeta", "Descripción", "Actualizado"})
+	f.SetSheetRow(hojaSubcarpetas, "A1", &[]interface{}{"Ruta subcarpeta", "Descripción", "Actualizado", "Retención"})
 	sort.SliceStable(b.subs, func(i, j int) bool { return strings.ToLower(b.subs[i].Ruta) < strings.ToLower(b.subs[j].Ruta) })
 	for i, d := range b.subs {
 		celda, _ := excelize.CoordinatesToCellName(1, i+2)
-		if err := f.SetSheetRow(hojaSubcarpetas, celda, &[]interface{}{rutaAExcel(d.Ruta), d.Descripcion, d.Actualizado}); err != nil {
+		if err := f.SetSheetRow(hojaSubcarpetas, celda, &[]interface{}{rutaAExcel(d.Ruta), d.Descripcion, d.Actualizado, d.Retencion}); err != nil {
 			return err
 		}
 	}

@@ -1,6 +1,8 @@
 <script setup>
 import {computed, ref, watch} from 'vue'
 import Icono from './Icono.vue'
+import Retencion from './Retencion.vue'
+import {padreDe, SIN_DEPURAR} from '../util'
 
 const props = defineProps({
   registro: {type: Object, required: true},
@@ -19,21 +21,34 @@ const ORDEN = ['General']
 const borrador = ref({})
 const ruta = ref('')
 const mostrarVacios = ref(false)
-const subBorrador = ref({})   // ruta subcarpeta -> descripción
+const subBorrador = ref({})   // ruta subcarpeta -> {descripcion, retencion}
 
 watch(() => [props.registro, props.editando, props.arbol], () => {
   borrador.value = {...(props.registro.valores || {})}
   ruta.value = props.registro.ruta || ''
-  subBorrador.value = Object.fromEntries(props.arbol.map((s) => [s.ruta, s.descripcion || '']))
+  subBorrador.value = Object.fromEntries(props.arbol.map((s) => [s.ruta, {descripcion: s.descripcion || '', retencion: s.retencion || ''}]))
 }, {immediate: true, deep: true})
 
-const subsFiltradas = computed(() => (props.editando || mostrarVacios.value ? props.arbol : props.arbol.filter((s) => s.descripcion)))
+const subsFiltradas = computed(() => (props.editando || mostrarVacios.value ? props.arbol : props.arbol.filter((s) => s.descripcion || s.retencion)))
 // Con muchas subcarpetas se muestran las primeras 5 y un botón para ver todas / contraer.
 const LIMITE_SUBS = 5
 const verTodas = ref(false)
 const subsVisibles = computed(() => (verTodas.value ? subsFiltradas.value : subsFiltradas.value.slice(0, LIMITE_SUBS)))
 watch(() => props.registro?.ruta, () => { verTodas.value = false })
 const subsDescritas = computed(() => props.arbol.filter((s) => s.descripcion).length)
+const subsConRetencion = computed(() => props.arbol.filter((s) => s.retencion).length)
+
+// Retención que heredaría una subcarpeta con lo que hay en el formulario (sube hasta la carpeta principal).
+const campoRet = computed(() => props.campos.find((c) => c.tipo === 'retencion')?.nombre || 'Retención de archivos')
+function heredadaEn(ruta) {
+  for (let p = padreDe(ruta); p; p = padreDe(p)) {
+    if (p === props.registro.ruta) return (props.editando ? borrador.value[campoRet.value] : val({nombre: campoRet.value})) || ''
+    const v = props.editando ? subBorrador.value[p]?.retencion : props.arbol.find((x) => x.ruta === p)?.retencion
+    if (v) return v
+  }
+  return ''
+}
+const textoRet = (v) => (v === SIN_DEPURAR ? 'no se depura' : v)
 
 const grupos = computed(() => {
   const m = new Map()
@@ -68,7 +83,7 @@ const marcado = (v) => /^x$/i.test((v || '').trim()) || v === '1' || /^s[ií]$/i
 const vacioTotal = computed(() => Object.values(props.registro.valores || {}).every((v) => !v) && !subsDescritas.value)
 
 function guardar() {
-  const subs = props.arbol.map((s) => ({ruta: s.ruta, descripcion: (subBorrador.value[s.ruta] || '').trim(), actualizado: ''}))
+  const subs = props.arbol.map((s) => ({ruta: s.ruta, descripcion: (subBorrador.value[s.ruta]?.descripcion || '').trim(), retencion: subBorrador.value[s.ruta]?.retencion || '', actualizado: ''}))
   emit('guardar', {...props.registro, ruta: ruta.value, valores: {...borrador.value}}, subs)
 }
 // Multilista: varios valores en una celda, separados por ";" (p. ej. "Informes; Formatos").
@@ -150,7 +165,7 @@ function alternarMarca(c) {
 
         <dl v-else class="campos">
           <div v-for="c in visibles(g)" :key="c.nombre" class="campo"
-               :class="[{ancho: c.tipo === 'largo' || c.tipo === 'multilista' || semaforo(c)}, semaforo(c) && 'sem-' + semaforo(c)]">
+               :class="[{ancho: c.tipo === 'largo' || c.tipo === 'multilista' || c.tipo === 'retencion' || semaforo(c)}, semaforo(c) && 'sem-' + semaforo(c)]">
             <dt>
               <span v-if="semaforo(c)" class="luz"></span>
               {{ semaforo(c) ? nombreSemaforo[semaforo(c)] : etiqueta(c.nombre) }}
@@ -159,7 +174,18 @@ function alternarMarca(c) {
               <span v-if="!partes(val(c)).length">—</span>
               <span v-else class="valores"><span v-for="x in partes(val(c))" :key="x" class="valor">{{ x }}</span></span>
             </dd>
+            <dd v-else-if="!editando && c.tipo === 'retencion'" class="ret-vista">
+              <span v-if="val(c)" class="valor ret">{{ val(c) === 'No depurar' ? 'No se depura' : 'Conservar ' + val(c) }}</span>
+              <span v-else>—</span>
+              <small class="muted">{{ val(c) && val(c) !== 'No depurar'
+                ? 'Los archivos modificados hace más de ese tiempo aparecen en la pestaña Vencidos. Las subcarpetas lo heredan si no tienen uno propio.'
+                : 'Defina cuánto tiempo deben quedarse los archivos para poder depurarlos en la pestaña Vencidos.' }}</small>
+            </dd>
             <dd v-else-if="!editando">{{ val(c) || '—' }}</dd>
+            <dd v-else-if="c.tipo === 'retencion'" class="ret-edit">
+              <Retencion v-model="borrador[c.nombre]"/>
+              <small class="muted">Se compara con la fecha de modificación de cada archivo. Aplica a esta carpeta y a sus subcarpetas que no tengan uno propio.</small>
+            </dd>
             <dd v-else-if="c.tipo === 'multilista'" class="multi">
               <div class="opciones-multi" role="group" :aria-label="etiqueta(c.nombre)">
                 <button v-for="o in opcionesDe(c)" :key="o" type="button" class="opcion" :class="{on: tiene(c, o)}"
@@ -189,7 +215,7 @@ function alternarMarca(c) {
     </template>
     <!-- Subcarpetas: explicación de cada una -->
     <section class="grupo subcarpetas">
-      <h3>Subcarpetas <span class="cuenta">{{ subsDescritas }} de {{ arbol.length }} descritas</span></h3>
+      <h3>Subcarpetas <span class="cuenta">{{ subsDescritas }} de {{ arbol.length }} descritas<template v-if="subsConRetencion"> · {{ subsConRetencion }} con retención propia</template></span></h3>
       <p v-if="!arbol.length" class="nota-sub">Esta carpeta no tiene subcarpetas.</p>
       <p v-else-if="!subsVisibles.length" class="nota-sub">
         Ninguna subcarpeta tiene explicación todavía. Use “Editar ficha” para describir para qué sirve cada una.
@@ -197,9 +223,18 @@ function alternarMarca(c) {
       <ul v-else class="lista-sub">
         <li v-for="s in subsVisibles" :key="s.ruta" :style="{'--n': s.nivel - 1}" :class="{editando}">
           <div class="nom-sub" :title="s.ruta"><Icono nombre="carpeta" class="ic-sub"/>{{ s.nombre }}</div>
-          <textarea v-if="editando" v-model="subBorrador[s.ruta]" class="campo-input" rows="1"
-                    :placeholder="'¿Qué se guarda en ' + s.nombre + '?'"></textarea>
-          <p v-else class="desc-sub" :class="{muted: !s.descripcion}">{{ s.descripcion || 'Sin descripción' }}</p>
+          <div v-if="editando && subBorrador[s.ruta]" class="edit-sub">
+            <textarea v-model="subBorrador[s.ruta].descripcion" class="campo-input" rows="1"
+                      :placeholder="'¿Qué se guarda en ' + s.nombre + '?'"></textarea>
+            <label class="ret-sub"><span>Retención</span>
+              <Retencion v-model="subBorrador[s.ruta].retencion" subcarpeta compacto :heredada="heredadaEn(s.ruta)"/>
+            </label>
+          </div>
+          <div v-else class="vista-sub">
+            <p class="desc-sub" :class="{muted: !s.descripcion}">{{ s.descripcion || 'Sin descripción' }}</p>
+            <span v-if="s.retencion" class="valor ret pequeno">Retención: {{ textoRet(s.retencion) }}</span>
+            <span v-else-if="heredadaEn(s.ruta)" class="hereda">Retención: {{ textoRet(heredadaEn(s.ruta)) }} (heredada)</span>
+          </div>
         </li>
       </ul>
       <button v-if="subsFiltradas.length > LIMITE_SUBS" type="button" class="ver-todas" :aria-expanded="verTodas" @click="verTodas = !verTodas">
@@ -249,7 +284,14 @@ function alternarMarca(c) {
 .opcion.on .caja { background: var(--ambar-oscuro); border-color: var(--ambar-oscuro); }
 .otro { display: flex; gap: 6px; max-width: 420px; }
 .otro .campo-input { flex: 1; }
-.lista-sub textarea { min-height: 34px; resize: vertical; font-size: var(--t-s); }
+.lista-sub textarea { min-height: 34px; resize: vertical; font-size: var(--t-s); width: 100%; }
+.edit-sub { display: grid; gap: 6px; }
+.ret-sub { display: flex; align-items: center; gap: 8px; font-size: var(--t-xs); color: var(--tinta-3); }
+.vista-sub { display: grid; gap: 4px; justify-items: start; }
+.ret-vista, .ret-edit { display: grid; gap: 6px; justify-items: start; }
+.valor.ret { background: #e6f0f7; border-color: #bcd5e6; }
+.valor.pequeno { font-size: var(--t-xs); padding: 0 8px; }
+.hereda { font-size: var(--t-xs); color: var(--tinta-3); }
 h3 { margin: 0 0 10px; font-size: var(--t-s); font-weight: 600; color: var(--riel); }
 .campos {
   display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
