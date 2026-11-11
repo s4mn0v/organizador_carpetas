@@ -18,6 +18,8 @@ const (
 type configuracion struct {
 	Recientes []string          `json:"recientes,omitempty"` // últimas carpetas raíz usadas
 	Colores   map[string]string `json:"colores,omitempty"`   // ruta raíz (minúsculas) -> color de sus carpetas
+	// EstiloClaude: instrucciones de estilo ("skill") que se agregan al prompt de Claude ("" = por defecto).
+	EstiloClaude string `json:"estiloClaude,omitempty"`
 }
 
 func rutaConfig() string {
