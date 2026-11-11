@@ -52,6 +52,90 @@ export namespace main {
 	        this.orden = source["orden"];
 	    }
 	}
+	export class UsoClaude {
+	    entrada: number;
+	    salida: number;
+	    cacheLectura: number;
+	    cacheCreacion: number;
+	    costoUSD: number;
+	    turnos: number;
+	    duracionMs: number;
+	    mensajes: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new UsoClaude(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.entrada = source["entrada"];
+	        this.salida = source["salida"];
+	        this.cacheLectura = source["cacheLectura"];
+	        this.cacheCreacion = source["cacheCreacion"];
+	        this.costoUSD = source["costoUSD"];
+	        this.turnos = source["turnos"];
+	        this.duracionMs = source["duracionMs"];
+	        this.mensajes = source["mensajes"];
+	    }
+	}
+	export class Conversacion {
+	    id: string;
+	    titulo: string;
+	    sesion: string;
+	    creada: string;
+	    actualizada: string;
+	    mensajes: string;
+	    uso: UsoClaude;
+	
+	    static createFrom(source: any = {}) {
+	        return new Conversacion(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.titulo = source["titulo"];
+	        this.sesion = source["sesion"];
+	        this.creada = source["creada"];
+	        this.actualizada = source["actualizada"];
+	        this.mensajes = source["mensajes"];
+	        this.uso = this.convertValues(source["uso"], UsoClaude);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class ConversacionClaude {
+	    conv: string;
+	    sesion: string;
+	    ocupado: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new ConversacionClaude(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.conv = source["conv"];
+	        this.sesion = source["sesion"];
+	        this.ocupado = source["ocupado"];
+	    }
+	}
 	export class CopiaDup {
 	    ruta: string;
 	    carpeta: string;
@@ -367,6 +451,52 @@ export namespace main {
 		    return a;
 		}
 	}
+	export class EstadoClaude {
+	    activo: boolean;
+	    url: string;
+	    config: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new EstadoClaude(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.activo = source["activo"];
+	        this.url = source["url"];
+	        this.config = source["config"];
+	    }
+	}
+	export class EstadoIndice {
+	    raiz: string;
+	    listo: boolean;
+	    cargando: boolean;
+	    carpetas: number;
+	    archivos: number;
+	    leidos: number;
+	    vigilando: boolean;
+	    dudoso: boolean;
+	    generado: string;
+	    parcial: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new EstadoIndice(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.raiz = source["raiz"];
+	        this.listo = source["listo"];
+	        this.cargando = source["cargando"];
+	        this.carpetas = source["carpetas"];
+	        this.archivos = source["archivos"];
+	        this.leidos = source["leidos"];
+	        this.vigilando = source["vigilando"];
+	        this.dudoso = source["dudoso"];
+	        this.generado = source["generado"];
+	        this.parcial = source["parcial"];
+	    }
+	}
 	
 	export class NodoGrafo {
 	    id: string;
@@ -469,6 +599,24 @@ export namespace main {
 		    }
 		    return a;
 		}
+	}
+	export class HerramientaClaude {
+	    nombre: string;
+	    etiqueta: string;
+	    tipo: string;
+	    pista: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new HerramientaClaude(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.nombre = source["nombre"];
+	        this.etiqueta = source["etiqueta"];
+	        this.tipo = source["tipo"];
+	        this.pista = source["pista"];
+	    }
 	}
 	
 	export class Raiz {
@@ -584,6 +732,26 @@ export namespace main {
 		    return a;
 		}
 	}
+	export class ResultadoSubir {
+	    carpetas: string[];
+	    archivos: number;
+	    tamano: number;
+	    errores: string[];
+	    cancelado: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new ResultadoSubir(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.carpetas = source["carpetas"];
+	        this.archivos = source["archivos"];
+	        this.tamano = source["tamano"];
+	        this.errores = source["errores"];
+	        this.cancelado = source["cancelado"];
+	    }
+	}
 	export class ResultadoVencidos {
 	    archivos: ArchivoVencido[];
 	    revisados: number;
@@ -625,6 +793,24 @@ export namespace main {
 		    }
 		    return a;
 		}
+	}
+	export class ResumenConversacion {
+	    id: string;
+	    titulo: string;
+	    actualizada: string;
+	    actual: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new ResumenConversacion(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.titulo = source["titulo"];
+	        this.actualizada = source["actualizada"];
+	        this.actual = source["actual"];
+	    }
 	}
 	export class ResumenEliminar {
 	    carpetas: number;

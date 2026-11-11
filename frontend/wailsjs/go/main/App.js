@@ -10,6 +10,14 @@ export function AbrirBase(arg1) {
   return window['go']['main']['App']['AbrirBase'](arg1);
 }
 
+export function AbrirConversacion(arg1) {
+  return window['go']['main']['App']['AbrirConversacion'](arg1);
+}
+
+export function AbrirEnExplorador(arg1) {
+  return window['go']['main']['App']['AbrirEnExplorador'](arg1);
+}
+
 export function AbrirPapelera(arg1) {
   return window['go']['main']['App']['AbrirPapelera'](arg1);
 }
@@ -34,8 +42,16 @@ export function Buscar(arg1, arg2) {
   return window['go']['main']['App']['Buscar'](arg1, arg2);
 }
 
+export function CancelarClaude() {
+  return window['go']['main']['App']['CancelarClaude']();
+}
+
 export function CancelarDuplicados() {
   return window['go']['main']['App']['CancelarDuplicados']();
+}
+
+export function CancelarSubida() {
+  return window['go']['main']['App']['CancelarSubida']();
 }
 
 export function CancelarVencidos() {
@@ -50,8 +66,16 @@ export function ColorRaiz(arg1, arg2) {
   return window['go']['main']['App']['ColorRaiz'](arg1, arg2);
 }
 
+export function ConectarClaude() {
+  return window['go']['main']['App']['ConectarClaude']();
+}
+
 export function ContarEliminar(arg1) {
   return window['go']['main']['App']['ContarEliminar'](arg1);
+}
+
+export function ConversacionClaude() {
+  return window['go']['main']['App']['ConversacionClaude']();
 }
 
 export function CrearBase(arg1) {
@@ -66,28 +90,72 @@ export function Depurar(arg1) {
   return window['go']['main']['App']['Depurar'](arg1);
 }
 
+export function DesconectarClaude() {
+  return window['go']['main']['App']['DesconectarClaude']();
+}
+
 export function Duplicados(arg1) {
   return window['go']['main']['App']['Duplicados'](arg1);
+}
+
+export function ElegirCarpetaOrigen() {
+  return window['go']['main']['App']['ElegirCarpetaOrigen']();
 }
 
 export function Eliminar(arg1) {
   return window['go']['main']['App']['Eliminar'](arg1);
 }
 
+export function EliminarConversacion(arg1) {
+  return window['go']['main']['App']['EliminarConversacion'](arg1);
+}
+
 export function EliminarRegistro(arg1, arg2) {
   return window['go']['main']['App']['EliminarRegistro'](arg1, arg2);
+}
+
+export function EnviarAClaude(arg1, arg2, arg3) {
+  return window['go']['main']['App']['EnviarAClaude'](arg1, arg2, arg3);
 }
 
 export function Estado() {
   return window['go']['main']['App']['Estado']();
 }
 
+export function EstadoClaude() {
+  return window['go']['main']['App']['EstadoClaude']();
+}
+
+export function EstadosIndice() {
+  return window['go']['main']['App']['EstadosIndice']();
+}
+
+export function EstiloClaude() {
+  return window['go']['main']['App']['EstiloClaude']();
+}
+
 export function Grafo(arg1, arg2, arg3) {
   return window['go']['main']['App']['Grafo'](arg1, arg2, arg3);
 }
 
+export function GuardarConversacion(arg1, arg2, arg3) {
+  return window['go']['main']['App']['GuardarConversacion'](arg1, arg2, arg3);
+}
+
+export function GuardarEstiloClaude(arg1) {
+  return window['go']['main']['App']['GuardarEstiloClaude'](arg1);
+}
+
 export function GuardarRegistro(arg1, arg2) {
   return window['go']['main']['App']['GuardarRegistro'](arg1, arg2);
+}
+
+export function HerramientasClaude() {
+  return window['go']['main']['App']['HerramientasClaude']();
+}
+
+export function LimpiarLogClaude() {
+  return window['go']['main']['App']['LimpiarLogClaude']();
 }
 
 export function LimpiarRecientes() {
@@ -98,12 +166,28 @@ export function Listar(arg1) {
   return window['go']['main']['App']['Listar'](arg1);
 }
 
+export function ListarConversaciones() {
+  return window['go']['main']['App']['ListarConversaciones']();
+}
+
+export function LogClaude() {
+  return window['go']['main']['App']['LogClaude']();
+}
+
+export function MedirIndexacion(arg1) {
+  return window['go']['main']['App']['MedirIndexacion'](arg1);
+}
+
 export function MostrarEnCarpeta(arg1) {
   return window['go']['main']['App']['MostrarEnCarpeta'](arg1);
 }
 
 export function Mover(arg1, arg2) {
   return window['go']['main']['App']['Mover'](arg1, arg2);
+}
+
+export function NuevaConversacionClaude() {
+  return window['go']['main']['App']['NuevaConversacionClaude']();
 }
 
 export function OlvidarTamanos() {
@@ -122,8 +206,16 @@ export function Renombrar(arg1, arg2) {
   return window['go']['main']['App']['Renombrar'](arg1, arg2);
 }
 
+export function SubirCarpetas(arg1, arg2) {
+  return window['go']['main']['App']['SubirCarpetas'](arg1, arg2);
+}
+
 export function TamanoCarpeta(arg1) {
   return window['go']['main']['App']['TamanoCarpeta'](arg1);
+}
+
+export function UsoConversacion(arg1) {
+  return window['go']['main']['App']['UsoConversacion'](arg1);
 }
 
 export function Vencidos(arg1) {

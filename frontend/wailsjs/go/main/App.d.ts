@@ -6,6 +6,10 @@ export function AbrirArchivo(arg1:string):Promise<void>;
 
 export function AbrirBase(arg1:string):Promise<void>;
 
+export function AbrirConversacion(arg1:string):Promise<main.Conversacion>;
+
+export function AbrirEnExplorador(arg1:string):Promise<void>;
+
 export function AbrirPapelera(arg1:string):Promise<void>;
 
 export function AgregarArchivos(arg1:string):Promise<Array<string>>;
@@ -18,7 +22,11 @@ export function Archivo(arg1:string):Promise<main.DetalleArchivo>;
 
 export function Buscar(arg1:string,arg2:string):Promise<main.ResultadoBusqueda>;
 
+export function CancelarClaude():Promise<void>;
+
 export function CancelarDuplicados():Promise<void>;
+
+export function CancelarSubida():Promise<void>;
 
 export function CancelarVencidos():Promise<void>;
 
@@ -26,7 +34,11 @@ export function Carpeta(arg1:string):Promise<main.DetalleCarpeta>;
 
 export function ColorRaiz(arg1:string,arg2:string):Promise<void>;
 
+export function ConectarClaude():Promise<main.EstadoClaude>;
+
 export function ContarEliminar(arg1:string):Promise<main.ResumenEliminar>;
+
+export function ConversacionClaude():Promise<main.ConversacionClaude>;
 
 export function CrearBase(arg1:string):Promise<void>;
 
@@ -34,25 +46,55 @@ export function CrearCarpeta(arg1:string,arg2:string):Promise<string>;
 
 export function Depurar(arg1:Array<string>):Promise<main.ResultadoDepurar>;
 
+export function DesconectarClaude():Promise<void>;
+
 export function Duplicados(arg1:string):Promise<main.ResultadoDuplicados>;
+
+export function ElegirCarpetaOrigen():Promise<string>;
 
 export function Eliminar(arg1:string):Promise<string>;
 
+export function EliminarConversacion(arg1:string):Promise<void>;
+
 export function EliminarRegistro(arg1:string,arg2:number):Promise<void>;
+
+export function EnviarAClaude(arg1:string,arg2:string,arg3:string):Promise<void>;
 
 export function Estado():Promise<main.Estado>;
 
+export function EstadoClaude():Promise<main.EstadoClaude>;
+
+export function EstadosIndice():Promise<Array<main.EstadoIndice>>;
+
+export function EstiloClaude():Promise<string>;
+
 export function Grafo(arg1:string,arg2:number,arg3:boolean):Promise<main.Grafo>;
 
+export function GuardarConversacion(arg1:string,arg2:string,arg3:string):Promise<void>;
+
+export function GuardarEstiloClaude(arg1:string):Promise<string>;
+
 export function GuardarRegistro(arg1:main.Registro,arg2:Array<main.DescripcionSub>):Promise<main.Registro>;
+
+export function HerramientasClaude():Promise<Array<main.HerramientaClaude>>;
+
+export function LimpiarLogClaude():Promise<void>;
 
 export function LimpiarRecientes():Promise<void>;
 
 export function Listar(arg1:string):Promise<Array<main.Entrada>>;
 
+export function ListarConversaciones():Promise<Array<main.ResumenConversacion>>;
+
+export function LogClaude():Promise<Array<string>>;
+
+export function MedirIndexacion(arg1:string):Promise<void>;
+
 export function MostrarEnCarpeta(arg1:string):Promise<void>;
 
 export function Mover(arg1:string,arg2:string):Promise<string>;
+
+export function NuevaConversacionClaude():Promise<string>;
 
 export function OlvidarTamanos():Promise<void>;
 
@@ -62,6 +104,10 @@ export function QuitarReciente(arg1:string):Promise<void>;
 
 export function Renombrar(arg1:string,arg2:string):Promise<string>;
 
+export function SubirCarpetas(arg1:string,arg2:Array<string>):Promise<main.ResultadoSubir>;
+
 export function TamanoCarpeta(arg1:string):Promise<main.TamanoTotal>;
+
+export function UsoConversacion(arg1:string):Promise<main.UsoClaude>;
 
 export function Vencidos(arg1:string):Promise<main.ResultadoVencidos>;
