@@ -31,6 +31,7 @@ defineProps({nombre: {type: String, required: true}})
     <template v-else-if="nombre === 'paleta'"><path d="M12 3a9 9 0 1 0 0 18c1.1 0 1.6-.8 1.6-1.6 0-.5-.2-.9-.5-1.2a1.6 1.6 0 0 1 1.2-2.7H16a5 5 0 0 0 5-5c0-4.1-4-7.5-9-7.5z"/><circle cx="7.5" cy="11" r="1"/><circle cx="10" cy="7" r="1"/><circle cx="15" cy="7.5" r="1"/></template>
     <template v-else-if="nombre === 'quitar'"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 13h6"/></template>
     <template v-else-if="nombre === 'guia'"><circle cx="12" cy="12" r="9"/><path d="m15.5 8.5-2 5-5 2 2-5z"/></template>
+    <template v-else-if="nombre === 'terminal'"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="m7 9 3 3-3 3M13 15h4"/></template>
     <template v-else-if="nombre === 'archivo'"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/></template>
   </svg>
 </template>

@@ -11,11 +11,13 @@ import Menu from './components/Menu.vue'
 import Duplicados from './components/Duplicados.vue'
 import Vencidos from './components/Vencidos.vue'
 import Tour from './components/Tour.vue'
+import PanelClaude from './components/PanelClaude.vue'
+import SubirCarpetas from './components/SubirCarpetas.vue'
 import {pasosApp, pasosInicio} from './guia'
 import {
   AbrirArchivo, AbrirBase, AbrirPapelera, AgregarArchivos, AgregarRaiz, AgregarRaizRuta, Archivo, Buscar, Carpeta, ColorRaiz,
   ContarEliminar, CrearBase, CrearCarpeta, Depurar, LimpiarRecientes, QuitarReciente, Eliminar, EliminarRegistro, Estado, GuardarRegistro, Listar,
-  MostrarEnCarpeta, Mover, OlvidarTamanos, QuitarRaiz, Renombrar, TamanoCarpeta,
+  AbrirEnExplorador, MostrarEnCarpeta, Mover, OlvidarTamanos, QuitarRaiz, Renombrar, TamanoCarpeta,
 } from '../wailsjs/go/main/App'
 import {EventsOn} from '../wailsjs/runtime/runtime'
 import {
@@ -35,6 +37,11 @@ const grafoDesde = ref('')
 const menu = ref(null)                // menú del clic derecho {x, y, titulo, items}
 const dupRef = ref(null)
 const vencRef = ref(null)
+const verClaude = ref(false)          // panel de Claude visible
+const subirA = ref('')                // carpeta destino del diálogo "Subir carpeta" ('' = cerrado)
+const cargandoSel = ref('')           // carpeta/archivo que se está abriendo ('' = nada): bloquea otros clics
+const verLoader = ref(false)          // el loader se ve si tarda más de 150 ms (evita parpadeo en carpetas rápidas)
+const claudeMontado = ref(false)      // se monta al abrirlo la 1.a vez y se conserva (no pierde el chat al cerrar)
 
 // Árbol (por demanda). "" = Inicio (las carpetas raíz abiertas); "r1/…" = dentro de una raíz.
 const hijos = reactive({})            // ruta -> entradas
@@ -215,6 +222,10 @@ onMounted(async () => {
   window.addEventListener('keydown', teclas)
   // El backend avisa lo que va sumando de cada carpeta (aunque el usuario ya esté en otra).
   EventsOn('tamano:progreso', (p) => { tamanos[p.ruta] = p })
+  // Claude cambió algo (crear, mover, eliminar…): se vuelve a leer lo que está a la vista.
+  EventsOn('claude:cambio', refrescarPorClaude)
+  // Alguien cambió algo en Z: (Explorador, otro PC): Windows avisa y lo que está a la vista se vuelve a leer.
+  EventsOn('indice:cambio', refrescarPorClaude)
   await reiniciar() // no abre el explorador: espera a que el usuario pulse "Elegir carpeta"
 })
 
@@ -228,9 +239,27 @@ async function recargarTodo() {
   await recargarSeleccion()
 }
 
+/* ---------- Claude ---------- */
+function alternarClaude() {
+  claudeMontado.value = true
+  verClaude.value = !verClaude.value
+}
+let tClaude = null
+function refrescarPorClaude() {
+  clearTimeout(tClaude) // varias herramientas seguidas = una sola recarga
+  tClaude = setTimeout(async () => {
+    await recargarEstado()
+    await Promise.all(Object.keys(hijos).map((r) => cargarDir(r, true)))
+    await recargarSeleccion()
+  }, 400)
+}
+
 /* ---------- Selección ---------- */
 async function seleccionar(e, resetear = true) {
+  if (cargandoSel.value) return // ya hay una abriéndose (Z: es lento): no se encolan clics
   if (editando.value && !(await confirmarDescartar())) return
+  cargandoSel.value = nombreVisible(e.ruta)
+  const tLoader = setTimeout(() => (verLoader.value = true), 150)
   try {
     if (e.esCarpeta) {
       const d = await Carpeta(e.ruta)
@@ -248,6 +277,10 @@ async function seleccionar(e, resetear = true) {
     if (e.esCarpeta) calcularTamano(e.ruta)
   } catch (err) {
     avisar(mensajeError(err), 'error')
+  } finally {
+    clearTimeout(tLoader)
+    cargandoSel.value = ''
+    verLoader.value = false
   }
 }
 // Tamaño y cantidad de archivos con todas las subcarpetas. El backend lo guarda: si ya se calculó llega
@@ -372,6 +405,20 @@ const textoRet = (v) => (v === SIN_DEPURAR ? 'No se depura' : 'Conservar ' + v)
 /* ---------- Acciones de archivos ---------- */
 const abrirArchivo = (r) => ejecutar(() => AbrirArchivo(r))
 const mostrar = (r) => ejecutar(() => MostrarEnCarpeta(r))
+// Carpetas: se abren ellas mismas en el Explorador (archivos: su carpeta con el archivo seleccionado).
+const abrirExplorador = (r) => ejecutar(() => AbrirEnExplorador(r))
+
+async function subidas(r) {
+  const destino = subirA.value
+  subirA.value = ''
+  if (r.carpetas?.length) {
+    avisar(`${r.carpetas.length} carpeta(s) subidas: ${r.archivos.toLocaleString('es-CO')} archivo(s), ${tamano(r.tamano)}${r.cancelado ? ' (detenido)' : ''}`)
+  }
+  if (r.errores?.length) avisar(`${r.errores.length} problema(s): ${r.errores.slice(0, 3).join(' · ')}${r.errores.length > 3 ? '…' : ''}`, 'error')
+  await refrescarDirs([destino])
+  abiertos[destino] = true
+  await recargarSeleccion()
+}
 
 function pedirNuevaCarpeta(padre = null) {
   const p = padre ?? (sel.value.esCarpeta ? sel.value.ruta : padreDe(sel.value.ruta))
@@ -491,13 +538,14 @@ function abrirMenu(ev, e) {
       {texto: 'Ver la carpeta raíz', icono: 'carpeta-abierta', accion: () => elegirArbol(e)},
       {texto: 'Nueva carpeta', icono: 'carpeta-mas', accion: () => pedirNuevaCarpeta(r)},
       {texto: 'Agregar archivos', icono: 'subir', accion: () => agregarArchivos(r)},
+      {texto: 'Subir carpeta…', icono: 'carpeta-mas', accion: () => (subirA.value = r)},
       sep,
       {texto: 'Ver en el gráfico', icono: 'grafo', accion: () => verGrafo(r)},
       {texto: 'Buscar duplicados aquí', icono: 'copias', accion: () => irVista('duplicados', e)},
       {texto: 'Revisar vencidos aquí', icono: 'reloj', accion: () => irVista('vencidos', e)},
       sep,
       {texto: 'Cambiar color', icono: 'paleta', accion: () => pedirColor(r)},
-      {texto: 'Mostrar en el Explorador', icono: 'abrir', accion: () => mostrar(r)},
+      {texto: 'Abrir en el Explorador', icono: 'abrir', accion: () => abrirExplorador(r)},
       ...(info?.baseExiste ? [{texto: 'Abrir Excel de fichas', icono: 'excel', accion: () => ejecutar(() => AbrirBase(r))}] : []),
       sep,
       {texto: 'Quitar de la lista', icono: 'quitar', titulo: 'Solo la cierra en la aplicación; no borra nada', accion: () => quitarRaiz(r)},
@@ -507,6 +555,7 @@ function abrirMenu(ev, e) {
       {texto: 'Ver la carpeta', icono: 'carpeta-abierta', accion: () => elegirArbol(e)},
       {texto: 'Nueva subcarpeta', icono: 'carpeta-mas', accion: () => pedirNuevaCarpeta(r)},
       {texto: 'Agregar archivos', icono: 'subir', accion: () => agregarArchivos(r)},
+      {texto: 'Subir carpeta…', icono: 'carpeta-mas', accion: () => (subirA.value = r)},
       sep,
       {texto: 'Ver en el gráfico', icono: 'grafo', accion: () => verGrafo(r)},
       {texto: 'Buscar duplicados aquí', icono: 'copias', accion: () => irVista('duplicados', e)},
@@ -514,7 +563,7 @@ function abrirMenu(ev, e) {
       sep,
       {texto: 'Renombrar', icono: 'editar', tecla: 'F2', accion: () => pedirRenombrar(e)},
       {texto: 'Mover a…', icono: 'mover', accion: () => pedirMover(e)},
-      {texto: 'Mostrar en el Explorador', icono: 'abrir', accion: () => mostrar(r)},
+      {texto: 'Abrir en el Explorador', icono: 'abrir', accion: () => abrirExplorador(r)},
       sep,
       {texto: 'Eliminar', icono: 'borrar', peligro: true, accion: () => pedirEliminar(e)},
     ]
@@ -662,11 +711,14 @@ watch(dialogo, async (d) => {
 </script>
 
 <template>
-  <div class="app" :class="{'sin-raices': !hayRaices}">
+  <div class="app" :class="{'sin-raices': !hayRaices, 'con-claude': verClaude && hayRaices}">
     <!-- ================= SIDEBAR ================= -->
     <aside v-if="hayRaices" class="sidebar">
       <div class="marca">
-        <strong>Organizador de carpetas</strong>
+        <div class="marca-fila">
+          <strong>Organizador de carpetas</strong>
+          <button class="btn-claude" :class="{on: verClaude}" title="Abrir el asistente Claude" @click="alternarClaude">Claude</button>
+        </div>
         <button class="agregar-raiz" title="Abrir otra carpeta raíz (cada una con su propio Excel de fichas)" @click="agregarRaiz">
           <Icono nombre="carpeta-mas"/><span>Agregar carpeta raíz</span>
         </button>
@@ -850,7 +902,7 @@ watch(dialogo, async (d) => {
                 <p v-else class="estado-r ok">{{ r.registros }} ficha(s) técnica(s) en su Excel</p>
                 <div class="acc-raiz">
                   <button class="btn fantasma ic" title="Cambiar color" @click="pedirColor(r.id)"><Icono nombre="paleta"/></button>
-                  <button class="btn fantasma ic" title="Mostrar en el Explorador" @click="mostrar(r.id)"><Icono nombre="abrir"/></button>
+                  <button class="btn fantasma ic" title="Abrir en el Explorador" @click="abrirExplorador(r.id)"><Icono nombre="abrir"/></button>
                   <button v-if="r.baseExiste" class="btn fantasma ic" title="Abrir Excel de fichas" @click="ejecutar(() => AbrirBase(r.id))"><Icono nombre="excel"/></button>
                   <button class="btn fantasma ic" title="Quitar de la lista (no borra nada)" @click="quitarRaiz(r.id)"><Icono nombre="quitar"/></button>
                 </div>
@@ -882,6 +934,7 @@ watch(dialogo, async (d) => {
               </div>
               <div class="acciones">
                 <button class="btn" @click="pedirNuevaCarpeta(sel.ruta)"><Icono nombre="carpeta-mas"/>Nueva subcarpeta</button>
+                <button class="btn" title="Copiar aquí una o varias carpetas completas" @click="subirA = sel.ruta"><Icono nombre="subir"/>Subir carpeta</button>
                 <button class="btn" @click="agregarArchivos(sel.ruta)"><Icono nombre="subir"/>Agregar archivos</button>
                 <button class="btn" @click="verGrafo(sel.ruta)"><Icono nombre="grafo"/>Ver en gráfico</button>
                 <template v-if="!detalle.esRaiz">
@@ -893,7 +946,7 @@ watch(dialogo, async (d) => {
                   <button class="btn" @click="pedirColor(sel.ruta)"><Icono nombre="paleta"/>Color</button>
                   <button class="btn" title="Solo la cierra en la aplicación; no borra nada" @click="quitarRaiz(sel.ruta)"><Icono nombre="quitar"/>Quitar</button>
                 </template>
-                <button class="btn fantasma ic" title="Mostrar en el Explorador" @click="mostrar(sel.ruta)"><Icono nombre="abrir"/></button>
+                <button class="btn" @click="abrirExplorador(sel.ruta)"><Icono nombre="carpeta-abierta"/>Abrir en el Explorador</button>
               </div>
             </header>
 
@@ -1032,6 +1085,7 @@ watch(dialogo, async (d) => {
                       <td class="der" :title="fechaHora(e.modificado)">{{ fecha(e.modificado) }}</td>
                       <td class="acc">
                         <button v-if="!e.esCarpeta" class="btn fantasma ic" title="Abrir" @click="abrirArchivo(e.ruta)"><Icono nombre="abrir"/></button>
+                        <button v-else class="btn fantasma ic" title="Abrir en el Explorador" @click="abrirExplorador(e.ruta)"><Icono nombre="carpeta-abierta"/></button>
                         <button class="btn fantasma ic" title="Renombrar" @click="pedirRenombrar(e)"><Icono nombre="editar"/></button>
                         <button class="btn fantasma ic" title="Mover" @click="pedirMover(e)"><Icono nombre="mover"/></button>
                         <button class="btn fantasma ic rojo" title="Eliminar" @click="pedirEliminar(e)"><Icono nombre="borrar"/></button>
@@ -1046,6 +1100,7 @@ watch(dialogo, async (d) => {
                 <div class="fila-btn">
                   <button class="btn" @click="pedirNuevaCarpeta(sel.ruta)"><Icono nombre="carpeta-mas"/>Nueva subcarpeta</button>
                   <button class="btn" @click="agregarArchivos(sel.ruta)"><Icono nombre="subir"/>Agregar archivos</button>
+                  <button class="btn" @click="subirA = sel.ruta"><Icono nombre="subir"/>Subir carpeta</button>
                 </div>
               </div>
             </section>
@@ -1082,6 +1137,16 @@ watch(dialogo, async (d) => {
     <Ayuda v-if="verAyuda" @cerrar="verAyuda = false" @guia="iniciarGuia"/>
     <Tour v-if="guia" :key="guia.parte" :pasos="pasosGuia" @cerrar="guia = null" @terminar="terminarGuia"/>
 
+    <SubirCarpetas v-if="subirA" :destino="subirA" :destino-visible="rutaVisible(subirA)" @cerrar="subirA = ''" @listo="subidas"/>
+
+    <!-- Abriendo una carpeta: bloquea barra lateral y contenido, con loader en el centro -->
+    <div v-if="cargandoSel && hayRaices" class="bloqueo" :class="{visible: verLoader}" aria-live="polite">
+      <div class="bloqueo-caja"><span class="girador"></span><span>Abriendo <b>{{ cargandoSel }}</b>…</span></div>
+    </div>
+
+    <PanelClaude v-if="claudeMontado && hayRaices" v-show="verClaude" :contexto="sel.ruta" :contexto-visible="rutaVisible(sel.ruta)"
+                 @cerrar="verClaude = false" @desconectado="verClaude = false; claudeMontado = false"/>
+
     <div class="avisos" aria-live="polite">
       <div v-for="a in avisos" :key="a.id" class="toast" :class="a.tipo">{{ a.texto }}</div>
     </div>
@@ -1091,11 +1156,25 @@ watch(dialogo, async (d) => {
 <style>
 .app { display: grid; grid-template-columns: 380px 1fr; height: 100vh; outline: none; }
 .app.sin-raices { grid-template-columns: 1fr; }
+.app.con-claude { grid-template-columns: 380px 1fr 380px; }
+/* Fijo (no entra a la grilla): cubre barra lateral y contenido; el panel de Claude queda libre. */
+.bloqueo { position: fixed; top: 0; bottom: 0; left: 0; right: 0; z-index: 30; display: grid; grid-template-columns: 380px 1fr; cursor: progress; transition: background .15s; }
+.app.con-claude .bloqueo { right: 380px; }
+.bloqueo.visible { background: rgba(16, 49, 59, .14); }
+.bloqueo-caja { grid-column: 2; place-self: center; display: flex; align-items: center; gap: 10px; padding: 12px 18px; border-radius: var(--r-m);
+  background: var(--superficie); box-shadow: 0 8px 28px rgba(16, 49, 59, .2); font-size: var(--t-s); color: var(--tinta-2); opacity: 0; transition: opacity .15s; }
+.bloqueo.visible .bloqueo-caja { opacity: 1; }
+.girador { width: 18px; height: 18px; border: 2.5px solid var(--linea); border-top-color: var(--ambar); border-radius: 50%; animation: girar-carga .8s linear infinite; }
+@keyframes girar-carga { to { transform: rotate(360deg); } }
 
 /* ---- Sidebar ---- */
 .sidebar { display: flex; flex-direction: column; min-height: 0; background: var(--riel); color: var(--riel-tinta); }
 .marca { padding: 16px 16px 8px; display: grid; gap: 6px; }
 .marca strong { color: #fff; font-size: var(--t-l); font-weight: 600; }
+.marca-fila { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.btn-claude { padding: 3px 10px; border: 1px solid var(--riel-tenue); border-radius: 999px; background: none; color: var(--riel-tinta); font-size: var(--t-xs); font-weight: 600; }
+.btn-claude:hover { border-color: var(--ambar); color: #fff; }
+.btn-claude.on { background: var(--ambar); border-color: var(--ambar); color: #3d2a00; }
 .agregar-raiz {
   display: flex; align-items: center; gap: 6px; width: fit-content; padding: 3px 8px; margin-left: -8px;
   border: 0; border-radius: var(--r-s); background: none; color: var(--riel-tenue); font-size: var(--t-xs); text-align: left;
@@ -1244,7 +1323,7 @@ code { font-size: .92em; padding: 0 4px; border-radius: 3px; background: var(--l
 .sin-ficha { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 18px; border: 1px dashed var(--linea); border-radius: var(--r-m); background: var(--superficie); flex-wrap: wrap; }
 .sin-ficha p { margin: 0; color: var(--tinta-2); }
 .fila-btn { display: flex; gap: 8px; }
-.tabla-caja { background: var(--superficie); border: 1px solid var(--linea); border-radius: var(--r-m); overflow: auto; }
+.tabla-caja { background: var(--superficie); border: 1px solid var(--linea); border-radius: var(--r-m); overflow: auto; container-type: inline-size; }
 .tabla { width: 100%; border-collapse: collapse; font-size: var(--t-s); }
 .tabla th { text-align: left; padding: 8px 12px; background: #f6f8f9; color: var(--tinta-2); font-weight: 600; border-bottom: 1px solid var(--linea); cursor: pointer; user-select: none; white-space: nowrap; position: sticky; top: 0; }
 .tabla th i { font-style: normal; font-size: 10px; color: var(--tinta-3); }
@@ -1258,7 +1337,20 @@ code { font-size: .92em; padding: 0 4px; border-radius: 3px; background: var(--l
 .tabla tr:hover .acc .btn.ic { opacity: 1; }
 .nombre-ent { display: flex; align-items: center; gap: 8px; padding: 4px 0; border: 0; background: none; text-align: left; font-size: var(--t-s); color: var(--tinta); }
 .nombre-ent:hover span:not(.punto) { text-decoration: underline; }
-.nombre-ent span { overflow-wrap: anywhere; }
+.nombre-ent span { overflow-wrap: anywhere; } /* seguro: la celda nunca baja de 200px */
+/* Tabla responsive (p. ej. con el panel de Claude abierto): el nombre nunca se parte letra por letra;
+   se ocultan primero Tipo y luego Tamaño, y las acciones se compactan. */
+.tabla td.nom { min-width: 200px; }
+@container (max-width: 720px) {
+  .tabla th:nth-child(2), .tabla td.tipo { display: none; }
+  .tabla th, .tabla td { padding-left: 8px; padding-right: 8px; }
+  .tabla .acc .btn.ic { width: 24px; height: 26px; }
+}
+@container (max-width: 520px) {
+  .tabla th:nth-child(3), .tabla td:nth-child(3) { display: none; }
+  .tabla .acc .btn.ic { opacity: 0; }
+  .tabla tr:hover .acc .btn.ic, .tabla .acc .btn.ic:focus-visible { opacity: 1; }
+}
 .punto { width: 7px; height: 7px; border-radius: 50%; background: var(--cf, var(--ambar)); flex: none; }
 .ficha-padre { display: flex; align-items: center; gap: 14px; padding: 16px 18px; background: var(--superficie); border: 1px solid var(--linea); border-left: 4px solid var(--cf, var(--ambar)); border-radius: var(--r-m); }
 .ficha-padre > svg { width: 26px; height: 26px; color: var(--cf, var(--ambar-oscuro)); flex: none; }
