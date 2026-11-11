@@ -19,3 +19,7 @@ func mostrarEnExplorador(ruta string) error {
 func ocultar(string) {} // en Linux/macOS el punto inicial ya lo oculta
 
 func fechaCreacion(os.FileInfo) string { return "" }
+
+func comandoOculto(nombre string, args ...string) *exec.Cmd { return exec.Command(nombre, args...) }
+
+func abrirCarpeta(ruta string) error { return exec.Command("xdg-open", ruta).Start() }

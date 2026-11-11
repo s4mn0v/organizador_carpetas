@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
+	goruntime "runtime"
 	"strings"
 	"syscall"
 	"time"
@@ -90,19 +92,105 @@ func comandoOculto(nombre string, args ...string) *exec.Cmd {
 // abrirConSistema abre el archivo a través del Explorador de Windows, igual que un doble clic:
 // el programa (p. ej. Power BI) no queda como proceso hijo de la app ni hereda su entorno.
 func abrirConSistema(ruta string) error {
-	c := exec.Command("explorer.exe", ruta)
-	c.Env = entornoLimpio()
-	if err := c.Start(); err != nil {
+	// Entre comillas a mano: el Explorador corta en las comas si la ruta va sin comillas.
+	if err := explorerCrudo(`"` + ruta + `"`); err != nil {
 		return comandoOculto("rundll32", "url.dll,FileProtocolHandler", ruta).Start()
 	}
-	go c.Wait() // explorer.exe termina enseguida; se recoge para no dejar el proceso colgado
 	return nil
 }
 
+// abrirCarpeta abre la carpeta misma en el Explorador (rutas largas: forma corta 8.3).
+func abrirCarpeta(ruta string) error {
+	r := ruta
+	if len(r) >= windows.MAX_PATH {
+		if c := rutaCorta(r); c != "" {
+			r = c
+		}
+	}
+	return explorerCrudo(`"` + r + `"`)
+}
+
+// mostrarEnExplorador abre la carpeta del archivo con el archivo seleccionado.
+//
+// Antes se usaba `explorer /select, ruta`, pero el Explorador interpreta mal su línea de comandos:
+// con rutas de más de 260 caracteres (comunes en Z: y en lo que se encuentra con el buscador) o con
+// comas en el nombre, no encuentra el archivo y abre la carpeta del usuario. Ahora:
+//  1. API del shell (SHOpenFolderAndSelectItems): sin línea de comandos que interpretar.
+//  2. Si la ruta es larga, se prueba su forma corta 8.3.
+//  3. Último recurso: explorer con la ruta entre comillas armada a mano, o la carpeta que lo contiene.
 func mostrarEnExplorador(ruta string) error {
-	c := exec.Command("explorer", "/select,", ruta)
+	r := ruta
+	if len(r) >= windows.MAX_PATH {
+		if c := rutaCorta(r); c != "" {
+			r = c
+		}
+	}
+	if len(r) < windows.MAX_PATH && seleccionarEnShell(r) == nil {
+		return nil
+	}
+	if len(r) < windows.MAX_PATH {
+		return explorerCrudo(`/select,"` + r + `"`)
+	}
+	return explorerCrudo(`"` + filepath.Dir(ruta) + `"`) // ni la forma corta cabe: al menos su carpeta
+}
+
+var (
+	shell32                        = windows.NewLazySystemDLL("shell32.dll")
+	procILCreateFromPathW          = shell32.NewProc("ILCreateFromPathW")
+	procILFree                     = shell32.NewProc("ILFree")
+	procSHOpenFolderAndSelectItems = shell32.NewProc("SHOpenFolderAndSelectItems")
+)
+
+// seleccionarEnShell: SHOpenFolderAndSelectItems (necesita COM en el hilo que llama).
+func seleccionarEnShell(ruta string) error {
+	goruntime.LockOSThread()
+	defer goruntime.UnlockOSThread()
+	if err := windows.CoInitializeEx(0, windows.COINIT_APARTMENTTHREADED); err == nil {
+		defer windows.CoUninitialize()
+	}
+	p, err := syscall.UTF16PtrFromString(ruta)
+	if err != nil {
+		return err
+	}
+	pidl, _, _ := procILCreateFromPathW.Call(uintptr(unsafe.Pointer(p)))
+	if pidl == 0 {
+		return fmt.Errorf("el shell no reconoce la ruta")
+	}
+	defer procILFree.Call(pidl)
+	if hr, _, _ := procSHOpenFolderAndSelectItems.Call(pidl, 0, 0, 0); hr != 0 {
+		return fmt.Errorf("SHOpenFolderAndSelectItems: 0x%x", hr)
+	}
+	return nil
+}
+
+// rutaCorta: forma 8.3 de una ruta larga ("" si el disco no la tiene).
+func rutaCorta(ruta string) string {
+	p, err := syscall.UTF16PtrFromString(rutaLarga(ruta))
+	if err != nil {
+		return ""
+	}
+	buf := make([]uint16, 32768)
+	n, err := windows.GetShortPathName(p, &buf[0], uint32(len(buf)))
+	if err != nil || n == 0 || int(n) > len(buf) {
+		return ""
+	}
+	c := windows.UTF16ToString(buf[:n])
+	if strings.HasPrefix(c, `\\?\UNC\`) {
+		return `\\` + c[8:]
+	}
+	return strings.TrimPrefix(c, `\\?\`)
+}
+
+// explorerCrudo lanza explorer.exe con la línea de comandos exacta (sin el entrecomillado de Go).
+func explorerCrudo(args string) error {
+	c := exec.Command("explorer.exe")
+	c.SysProcAttr = &syscall.SysProcAttr{CmdLine: "explorer.exe " + args}
 	c.Env = entornoLimpio()
-	return c.Start()
+	if err := c.Start(); err != nil {
+		return err
+	}
+	go c.Wait()
+	return nil
 }
 
 // fechaCreacion lee la fecha de creación que guarda Windows.
