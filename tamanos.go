@@ -50,6 +50,11 @@ func (a *App) TamanoCarpeta(v string) (*TamanoTotal, error) {
 			return nil, err
 		}
 	}
+	// Índice al día (vigilado en vivo): el total sale al instante, sin recorrer Z:.
+	if t, ok := a.tamanoDesdeIndice(v); ok {
+		a.emitir("tamano:progreso", t)
+		return &t, nil
+	}
 	a.tamMu.Lock()
 	if a.tams == nil {
 		a.tams = map[string]*trabajoTam{}
@@ -198,6 +203,7 @@ func (a *App) calcularTamano(tr *trabajoTam) {
 // olvidarTamanos: algo cambió en estas rutas. Se borra el total de cada una, de sus carpetas
 // superiores (hasta el Inicio) y de las que tenía adentro; se vuelven a calcular al verlas.
 func (a *App) olvidarTamanos(rutas ...string) {
+	go a.indiceCambio(rutas...) // el índice de Claude también se pone al día (solo esa parte)
 	a.tamMu.Lock()
 	defer a.tamMu.Unlock()
 	for _, r := range rutas {
@@ -222,6 +228,7 @@ func (a *App) olvidarTamanos(rutas ...string) {
 
 // OlvidarTamanos (botón Recargar): borra todos los totales guardados.
 func (a *App) OlvidarTamanos() {
+	go a.reindexarTodo() // Recargar: el índice se rehace completo
 	a.tamMu.Lock()
 	defer a.tamMu.Unlock()
 	for k, tr := range a.tams {

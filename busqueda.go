@@ -194,6 +194,15 @@ func (a *App) Buscar(texto, dentro string) (*ResultadoBusqueda, error) {
 		}
 		alcances = append(alcances, alcance{ri, rel})
 	}
+	// Índice al día (vigilado en vivo): respuesta instantánea sin recorrer Z:.
+	ris := make([]*raizInfo, len(alcances))
+	rels := make([]string, len(alcances))
+	for i, al := range alcances {
+		ris[i], rels[i] = al.ri, al.rel
+	}
+	if r, ok := a.buscarEnIndice(qs, ris, rels); ok {
+		return r, nil
+	}
 	type hallado struct {
 		e       Entrada
 		n       int
